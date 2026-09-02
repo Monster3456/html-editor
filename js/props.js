@@ -110,7 +110,7 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     els.imgSec.hidden = el.tagName !== 'IMG';
     if (el.tagName === 'IMG') {
-      els.imgSrc.value = el.getAttribute('src') || '';
+      els.imgSrc.value = el.getAttribute('data-editor-src') || el.getAttribute('src') || '';
       els.imgAlt.value = el.getAttribute('alt') || '';
     }
 
@@ -237,6 +237,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       const reader = new FileReader();
       reader.onload = function () {
         if (!el.isConnected) return;
+        el.removeAttribute('data-editor-src');
         el.setAttribute('src', reader.result);
         els.imgSrc.value = reader.result;
         hooks.commit('上传替换图片');
@@ -346,6 +347,7 @@ window.HTMLEditor = window.HTMLEditor || {};
           hooks.status('请输入图片地址');
           return;
         }
+        el.removeAttribute('data-editor-src');
         el.setAttribute('src', v);
         hooks.commit('替换图片地址');
         hooks.status('图片地址已应用');

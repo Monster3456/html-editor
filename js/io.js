@@ -23,9 +23,13 @@ window.HTMLEditor = window.HTMLEditor || {};
   }
 
   ns.io = {
+    decodeText: function (file) {
+      return file.arrayBuffer().then(decodeBuffer);
+    },
+
     openFile: function (file) {
-      return file.arrayBuffer().then(function (buf) {
-        return { name: file.name, html: decodeBuffer(buf) };
+      return ns.io.decodeText(file).then(function (html) {
+        return { name: file.name, html: html };
       });
     },
 

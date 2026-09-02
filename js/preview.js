@@ -172,10 +172,56 @@ window.HTMLEditor = window.HTMLEditor || {};
     } catch (e) { }
   }
 
+  function resolveProjectRefs(d, project) {
+    const htmlDir = (function () {
+      const p = project.getHtmlPath() || '';
+      const i = p.lastIndexOf('/');
+      return i < 0 ? '' : p.slice(0, i);
+    })();
+
+    d.querySelectorAll('link').forEach(function (link) {
+      const rel = link.getAttribute('rel') || '';
+      if (!/\bstylesheet\b/i.test(rel)) return;
+      const href = link.getAttribute('href') || '';
+      if (project.isExternal(href)) return;
+      const entry = project.resolveRef(href, htmlDir);
+      if (!entry || entry.cssText === undefined) return;
+      link.setAttribute('data-editor-rel', rel);
+      link.setAttribute('rel', 'editor-disabled');
+      const style = d.createElement('style');
+      style.setAttribute('data-editor-css', href);
+      const media = link.getAttribute('media');
+      if (media) style.setAttribute('media', media);
+      style.textContent = project.cssPreviewText(entry);
+      link.after(style);
+    });
+
+    d.querySelectorAll('img[src], source[src]').forEach(function (el) {
+      const v = el.getAttribute('src') || '';
+      if (project.isExternal(v)) return;
+      const entry = project.resolveRef(v, htmlDir);
+      if (!entry || !entry.isImage) return;
+      el.setAttribute('data-editor-src', v);
+      el.setAttribute('src', project.blobUrlFor(entry));
+    });
+
+    d.querySelectorAll('video[poster]').forEach(function (el) {
+      const v = el.getAttribute('poster') || '';
+      if (project.isExternal(v)) return;
+      const entry = project.resolveRef(v, htmlDir);
+      if (!entry || !entry.isImage) return;
+      el.setAttribute('data-editor-poster', v);
+      el.setAttribute('poster', project.blobUrlFor(entry));
+    });
+  }
+
   function preWriteTransform(src, opts) {
     const needsMeta = /<meta[^>]+http-equiv\s*=\s*["']?\s*refresh/i.test(src);
     const needsNeuter = !!opts.neuterScripts;
-    if (!needsMeta && !needsNeuter) return src;
+    const project = opts.project;
+    const needsResolve = !!(project && project.hasFiles() &&
+      /<(link|img|source|video)\b/i.test(src));
+    if (!needsMeta && !needsNeuter && !needsResolve) return src;
     let parsed;
     try {
       parsed = new DOMParser().parseFromString(src, 'text/html');
@@ -197,6 +243,9 @@ window.HTMLEditor = window.HTMLEditor || {};
           m.removeAttribute('http-equiv');
         }
       });
+    }
+    if (needsResolve) {
+      try { resolveProjectRefs(parsed, project); } catch (e) { }
     }
     const dt = (src.match(/<!DOCTYPE[^>]*>/i) || [''])[0];
     return (dt ? dt + '\n' : '') + parsed.documentElement.outerHTML;
@@ -249,7 +298,8 @@ window.HTMLEditor = window.HTMLEditor || {};
     clearSelection();
 
     const neuterScripts = !sandboxWorks && !hooks.getScriptsEnabled();
-    const writeStr = preWriteTransform(source, { neuterScripts: neuterScripts });
+    const project = hooks.getProject ? hooks.getProject() : null;
+    const writeStr = preWriteTransform(source, { neuterScripts: neuterScripts, project: project });
 
     let d = ensureIframeDoc();
     if (!d) {
@@ -392,6 +442,19 @@ window.HTMLEditor = window.HTMLEditor || {};
       m.setAttribute('http-equiv', m.getAttribute('data-editor-httpequiv'));
       m.removeAttribute('data-editor-httpequiv');
     });
+    clone.querySelectorAll('link[data-editor-rel]').forEach(function (l) {
+      l.setAttribute('rel', l.getAttribute('data-editor-rel'));
+      l.removeAttribute('data-editor-rel');
+    });
+    clone.querySelectorAll('style[data-editor-css]').forEach(function (s) { s.remove(); });
+    clone.querySelectorAll('[data-editor-src]').forEach(function (el) {
+      el.setAttribute('src', el.getAttribute('data-editor-src'));
+      el.removeAttribute('data-editor-src');
+    });
+    clone.querySelectorAll('[data-editor-poster]').forEach(function (el) {
+      el.setAttribute('poster', el.getAttribute('data-editor-poster'));
+      el.removeAttribute('data-editor-poster');
+    });
     const dt = d.doctype;
     let dtStr = '';
     if (dt) {
@@ -453,7 +516,8 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     detectRelativeUrls: function (d) {
       let count = 0;
-      d.querySelectorAll('img[src], link[href], script[src], source[src], iframe[src]').forEach(function (el) {
+      d.querySelectorAll('img[src], link[href], script[src], source[src]').forEach(function (el) {
+        if (el.hasAttribute('data-editor-src') || el.hasAttribute('data-editor-rel')) return;
         const v = el.getAttribute('src') || el.getAttribute('href') || '';
         if (!v) return;
         if (/^(https?:|data:|blob:|mailto:|tel:|javascript:|#|\/\/)/i.test(v)) return;

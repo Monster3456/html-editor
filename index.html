@@ -9,36 +9,78 @@
 <body>
 
 <header id="toolbar">
-  <span id="logo">HTML 编辑器</span>
-  <button class="btn" id="btn-open" title="打开本地 HTML 文件 (Ctrl+O)">打开</button>
-  <input type="file" id="file-input" accept=".html,.htm,.xhtml,text/html" hidden>
-  <button class="btn btn-primary" id="btn-export" title="导出编辑后的 HTML (Ctrl+S)">导出 HTML</button>
+  <div id="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    <span>HTML 编辑器</span>
+  </div>
+
+  <div class="menu-wrap" id="open-menu">
+    <button class="btn" id="btn-open" title="打开文件或项目文件夹">
+      <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+      <span>打开</span>
+      <svg class="ic-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="menu" id="open-menu-list" hidden>
+      <button class="menu-item" id="mi-open-file">
+        <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        <span>打开文件…</span><kbd>Ctrl+O</kbd>
+      </button>
+      <button class="menu-item" id="mi-open-dir">
+        <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        <span>打开项目文件夹…</span>
+      </button>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="btn-export" title="导出编辑后的 HTML (Ctrl+S)">
+    <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+    <span>导出 HTML</span>
+  </button>
+
   <span class="tb-sep"></span>
-  <button class="btn" id="btn-undo" title="撤销 (Ctrl+Z)" disabled>撤销</button>
-  <button class="btn" id="btn-redo" title="重做 (Ctrl+Y)" disabled>重做</button>
-  <button class="btn" id="btn-reset" title="恢复为打开时的原始内容">重置</button>
-  <button class="btn" id="btn-refresh" title="按当前源码重新渲染预览">刷新预览</button>
-  <span class="tb-sep"></span>
-  <label class="chk" title="默认禁用页面脚本以保证编辑稳定；开启后脚本会执行并可能干扰编辑">
-    <input type="checkbox" id="chk-scripts"> 允许页面脚本
-  </label>
-  <button class="btn" id="btn-newwin" title="在浏览器新窗口中打开当前预览">新窗口预览</button>
+
+  <button class="btn icon-only" id="btn-undo" title="撤销 (Ctrl+Z)" disabled>
+    <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+  </button>
+  <button class="btn icon-only" id="btn-redo" title="重做 (Ctrl+Y)" disabled>
+    <svg viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
+  </button>
+  <button class="btn icon-only" id="btn-refresh" title="按当前源码重新渲染预览">
+    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+  </button>
+  <button class="btn icon-only" id="btn-reset" title="恢复为打开时的原始内容">
+    <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+  </button>
+  <button class="btn icon-only" id="btn-newwin" title="在浏览器新窗口中打开当前预览">
+    <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+  </button>
+
   <span class="tb-flex"></span>
+
+  <label class="switch" title="默认禁用页面脚本以保证编辑稳定；开启后脚本会执行并可能干扰编辑">
+    <input type="checkbox" id="chk-scripts">
+    <span class="sw-track"><span class="sw-knob"></span></span>
+    <span class="sw-label">允许脚本</span>
+  </label>
+
   <span id="dirty-dot" title="有未导出的修改" hidden>●</span>
-  <input type="text" id="filename" value="示例页面.html" title="导出文件名（可修改，建议以 .html 结尾）" spellcheck="false">
+  <input type="text" id="filename" value="未命名.html" title="导出文件名（可修改）" spellcheck="false">
 </header>
+
+<input type="file" id="file-input" accept=".html,.htm,.xhtml,text/html" multiple hidden>
+<input type="file" id="dir-input" webkitdirectory multiple hidden>
 
 <main id="main">
   <section id="code-pane">
     <div id="code-head">
-      <span>源代码</span>
+      <span class="ch-label"><span class="ch-dot"></span>源代码</span>
       <span id="code-size"></span>
     </div>
     <div id="code-body">
       <div id="gutter"><div id="gutter-inner">1</div></div>
       <div id="code-area">
         <pre id="hl-wrap" aria-hidden="true"><code id="hl"></code></pre>
-        <textarea id="code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+        <textarea id="code" wrap="off" spellcheck="false" autocomplete="off" autocapitalize="off" placeholder="在此输入或粘贴 HTML 代码…"></textarea>
       </div>
     </div>
   </section>
@@ -47,6 +89,12 @@
 
   <section id="preview-pane">
     <iframe id="preview" sandbox="allow-same-origin" title="预览"></iframe>
+
+    <div id="coach" hidden>
+      <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+      <span>单击选中元素 · 双击编辑文字</span>
+      <button id="coach-x" title="知道了">×</button>
+    </div>
 
     <div id="preview-hint" hidden>
       <div>
@@ -62,7 +110,7 @@
       </div>
       <div class="pp-body">
         <div class="pp-sec">
-          <div class="pp-title">通用</div>
+          <div class="pp-title">通用操作</div>
           <div class="pp-row pp-btns">
             <button class="pp-btn" data-act="delete" title="删除选中元素">删除</button>
             <button class="pp-btn" data-act="clone" title="复制选中元素并插入到其后">复制</button>
@@ -85,7 +133,7 @@
             <label>字号</label>
             <input type="range" id="pp-fs-range" min="8" max="72" step="1">
             <input type="number" id="pp-fs-num" min="1" max="400" step="1">
-            <span>px</span>
+            <span class="pp-unit">px</span>
           </div>
           <div class="pp-row">
             <label>字重</label>
@@ -110,8 +158,6 @@
             <label>文字色</label>
             <input type="color" id="pp-color">
             <button class="pp-mini" data-act="clearColor">清除</button>
-          </div>
-          <div class="pp-row">
             <label>背景色</label>
             <input type="color" id="pp-bgcolor">
             <button class="pp-mini" data-act="clearBg">清除</button>
@@ -128,7 +174,7 @@
           <div class="pp-row">
             <label>宽度</label>
             <input type="number" id="pp-bw" min="0" max="50" step="1">
-            <span>px</span>
+            <span class="pp-unit">px</span>
             <select id="pp-bs">
               <option value="solid">实线</option>
               <option value="dashed">虚线</option>
@@ -163,11 +209,9 @@
               <option value="">当前窗口</option>
               <option value="_blank">新窗口</option>
             </select>
-            <button class="pp-btn" data-act="applyLink">应用链接</button>
+            <button class="pp-btn" data-act="applyLink">应用</button>
           </div>
         </div>
-
-        <div class="pp-tip">双击预览中的元素可直接修改文字</div>
       </div>
     </div>
   </section>
@@ -177,6 +221,7 @@
   <span id="status-msg"></span>
   <span id="status-warn"></span>
   <span class="sb-flex"></span>
+  <span id="status-proj"></span>
   <span id="status-sel"></span>
   <span id="status-pos">行 1, 列 1</span>
   <span id="status-size"></span>
@@ -184,9 +229,53 @@
 
 <div id="drop-hint"><div>松开以打开 HTML 文件</div></div>
 
+<div id="picker" class="overlay" hidden>
+  <div class="modal">
+    <h2>选择要编辑的 HTML 文件</h2>
+    <p class="modal-sub" id="picker-sub"></p>
+    <div id="picker-list"></div>
+    <div class="modal-actions">
+      <button class="btn" id="picker-cancel">取消</button>
+      <button class="btn btn-primary" id="picker-ok">打开</button>
+    </div>
+  </div>
+</div>
+
+<div id="welcome" class="overlay">
+  <div class="welcome-card">
+    <div class="welcome-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+    </div>
+    <h1>HTML 可视化编辑器</h1>
+    <p class="welcome-sub">打开文件，在预览中点击元素即可编辑，完成后一键导出</p>
+    <div class="welcome-actions">
+      <button class="wcard" id="wc-open-file">
+        <span class="wcard-ic">
+          <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+        </span>
+        <span class="wcard-tx"><span class="wcard-t">打开 HTML 文件</span><span class="wcard-d">编辑单个网页文件</span></span>
+      </button>
+      <button class="wcard" id="wc-open-dir">
+        <span class="wcard-ic">
+          <svg viewBox="0 0 24 24"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span class="wcard-tx"><span class="wcard-t">打开项目文件夹</span><span class="wcard-d">支持 HTML + CSS + 图片，可选要编辑的页面</span></span>
+      </button>
+      <button class="wcard" id="wc-sample">
+        <span class="wcard-ic">
+          <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+        </span>
+        <span class="wcard-tx"><span class="wcard-t">使用示例页面</span><span class="wcard-d">快速体验各项编辑功能</span></span>
+      </button>
+    </div>
+    <p class="welcome-hint">也可以直接把 .html 文件或项目文件拖到窗口任意位置</p>
+  </div>
+</div>
+
 <script src="js/sample.js"></script>
 <script src="js/history.js"></script>
 <script src="js/io.js"></script>
+<script src="js/project.js"></script>
 <script src="js/codeEditor.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/props.js"></script>
