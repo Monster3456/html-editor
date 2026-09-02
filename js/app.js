@@ -9,7 +9,8 @@ window.HTMLEditor = window.HTMLEditor || {};
       fileName: '未命名.html',
       dirty: false,
       scriptsEnabled: false,
-      selected: null
+      selected: null,
+      deviceW: 0
     }
   };
 
@@ -18,6 +19,8 @@ window.HTMLEditor = window.HTMLEditor || {};
   let dom = {};
   let msgTimer = null;
   let pickerResolve = null;
+  let draftTimer = null;
+  let draftRecord = null;
 
   function describe(el) {
     const tag = el.tagName.toLowerCase();
@@ -77,6 +80,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       dom.statusSel.textContent = '';
       ns.props.hide();
     }
+    ns.tree.markSelected(el);
   };
 
   app.deselect = function () {
@@ -96,6 +100,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     updateDirty();
     refreshToolbar();
     updateStatusSize();
+    scheduleDraftSave();
   };
 
   app.onPreviewCommit = function (label) {
@@ -107,6 +112,8 @@ window.HTMLEditor = window.HTMLEditor || {};
     updateDirty();
     refreshToolbar();
     updateStatusSize();
+    ns.tree.scheduleRebuild();
+    scheduleDraftSave();
   };
 
   app.onRendered = function (doc) {
@@ -121,6 +128,9 @@ window.HTMLEditor = window.HTMLEditor || {};
     app.setWarn(rel > 0
       ? '页面包含 ' + rel + ' 个未解析的相对路径资源，预览中可能无法显示（导出时会尝试内联）'
       : '');
+    ns.tree.rebuild();
+    ns.contextmenu.attachDoc(doc);
+    applyDeviceToFrame();
   };
 
   app.loadDocument = function (doc, opts) {
@@ -134,6 +144,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     updateDirty();
     refreshToolbar();
     updateStatusSize();
+    scheduleDraftSave();
   };
 
   app.enterEditor = function () {
@@ -326,6 +337,104 @@ window.HTMLEditor = window.HTMLEditor || {};
     ns.preview.refresh();
   };
 
+  function applyDeviceToFrame() {
+    const frame = document.getElementById('preview');
+    if (!frame) return;
+    frame.style.width = app.state.deviceW > 0 ? app.state.deviceW + 'px' : '';
+  }
+
+  function setDevice(w) {
+    app.state.deviceW = w;
+    dom.deviceSeg.querySelectorAll('.seg-btn').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-w') === String(w));
+    });
+    if (w > 0) {
+      dom.previewPane.classList.add('device-narrow');
+      dom.deviceLabel.hidden = false;
+      dom.deviceLabel.textContent = '宽度 ' + w + 'px';
+      app.statusMsg('预览宽度已切换为 ' + w + 'px，模拟窄屏设备');
+    } else {
+      dom.previewPane.classList.remove('device-narrow');
+      dom.deviceLabel.hidden = true;
+      app.statusMsg('预览已恢复全宽');
+    }
+    applyDeviceToFrame();
+  }
+
+  function scheduleDraftSave() {
+    if (!ns.draft.available()) return;
+    clearTimeout(draftTimer);
+    draftTimer = setTimeout(function () {
+      draftTimer = null;
+      saveDraft();
+    }, 2000);
+  }
+
+  function fmtClock(t) {
+    const d = new Date(t);
+    const p = function (n) { return (n < 10 ? '0' : '') + n; };
+    return p(d.getHours()) + ':' + p(d.getMinutes());
+  }
+
+  function saveDraft() {
+    if (!app.state.source) return;
+    const files = ns.project.hasFiles() ? ns.project.entries() : [];
+    ns.draft.save({
+      fileName: app.state.fileName,
+      htmlPath: ns.project.hasFiles() ? ns.project.getHtmlPath() : null,
+      source: app.state.source,
+      originalHTML: app.state.originalHTML,
+      files: files
+    }).then(function (ok) {
+      if (ok) dom.statusDraft.textContent = '草稿已保存 ' + fmtClock(Date.now());
+    });
+  }
+
+  function initDraftResume() {
+    if (!ns.draft.available()) return;
+    ns.draft.load().then(function (rec) {
+      if (!rec || !rec.source) return;
+      draftRecord = rec;
+      dom.wcResume.hidden = false;
+      const bits = [rec.fileName || '未命名.html'];
+      if (rec.files && rec.files.length) bits.push('项目 ' + rec.files.length + ' 个文件');
+      if (rec.savedAt) bits.push(fmtClock(rec.savedAt));
+      dom.wcResumeInfo.textContent = bits.join(' · ');
+    });
+  }
+
+  function restoreDraft(rec) {
+    const done = function (original) {
+      app.loadDocument(
+        { name: rec.fileName || '未命名.html', html: rec.source },
+        { original: original != null ? original : rec.originalHTML }
+      );
+      app.enterEditor();
+      updateProjectStatus();
+      app.statusMsg('已恢复上次编辑的草稿');
+    };
+    if (rec.files && rec.files.length && rec.htmlPath) {
+      ns.project.restoreFromDraft(rec.files, rec.htmlPath).then(function (ok) {
+        if (ok) {
+          ns.project.stashCurrent(rec.source);
+          ns.project.originalHtml(rec.htmlPath).then(function (orig) {
+            done(orig || rec.originalHTML);
+          });
+        } else {
+          done(rec.originalHTML);
+        }
+      });
+    } else {
+      done(rec.originalHTML);
+    }
+  }
+
+  function collapseTree(c) {
+    dom.treePane.classList.toggle('collapsed', c);
+    dom.treeCollapsedBtn.hidden = !c;
+    try { localStorage.setItem('he:tree', c ? '0' : '1'); } catch (e) { }
+  }
+
   function wireToolbar() {
     dom.btnOpen.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -333,6 +442,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     });
     document.addEventListener('click', function (e) {
       if (!dom.openMenu.contains(e.target)) dom.openMenuList.hidden = true;
+      if (!dom.insertMenu.contains(e.target)) dom.insertMenuList.hidden = true;
     });
     dom.miOpenFile.addEventListener('click', function () {
       dom.openMenuList.hidden = true;
@@ -341,6 +451,33 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.miOpenDir.addEventListener('click', function () {
       dom.openMenuList.hidden = true;
       dom.dirInput.click();
+    });
+
+    dom.btnInsert.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dom.insertMenuList.hidden = !dom.insertMenuList.hidden;
+    });
+    dom.insertMenuList.addEventListener('click', function (e) {
+      const btn = e.target.closest('[data-insert]');
+      if (!btn) return;
+      dom.insertMenuList.hidden = true;
+      ns.insert.insert(btn.getAttribute('data-insert'));
+    });
+
+    dom.deviceSeg.addEventListener('click', function (e) {
+      const btn = e.target.closest('.seg-btn');
+      if (!btn) return;
+      setDevice(parseInt(btn.getAttribute('data-w'), 10) || 0);
+    });
+
+    dom.treeToggle.addEventListener('click', function () { collapseTree(true); });
+    dom.treeCollapsedBtn.addEventListener('click', function () { collapseTree(false); });
+    try {
+      if (localStorage.getItem('he:tree') === '0') collapseTree(true);
+    } catch (e) { }
+
+    dom.wcResume.addEventListener('click', function () {
+      if (draftRecord) restoreDraft(draftRecord);
     });
 
     dom.fileInput.addEventListener('change', function () {
@@ -419,6 +556,9 @@ window.HTMLEditor = window.HTMLEditor || {};
           if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
           e.preventDefault();
           dom.fileInput.click();
+        } else if (k === 'f') {
+          e.preventDefault();
+          ns.codeEditor.openFind();
         } else if (k === 'z' && !e.shiftKey) {
           if (e.target && (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
           e.preventDefault();
@@ -429,6 +569,10 @@ window.HTMLEditor = window.HTMLEditor || {};
           app.redo();
         }
       } else if (e.key === 'Escape') {
+        if (ns.codeEditor.isFindOpen()) {
+          ns.codeEditor.closeFind();
+          return;
+        }
         const t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (!dom.picker.hidden) {
@@ -443,10 +587,14 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     window.addEventListener('beforeunload', function (e) {
       app.flushCodeCommit();
+      saveDraft();
       if (app.state.dirty) {
         e.preventDefault();
         e.returnValue = '';
       }
+    });
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') saveDraft();
     });
   }
 
@@ -505,6 +653,14 @@ window.HTMLEditor = window.HTMLEditor || {};
       fileInput: $('file-input'),
       dirInput: $('dir-input'),
       btnExport: $('btn-export'),
+      btnInsert: $('btn-insert'),
+      insertMenu: $('insert-menu'),
+      insertMenuList: $('insert-menu-list'),
+      deviceSeg: $('device-seg'),
+      deviceLabel: $('device-label'),
+      treePane: $('tree-pane'),
+      treeToggle: $('tree-toggle'),
+      treeCollapsedBtn: $('tree-collapsed-btn'),
       btnUndo: $('btn-undo'),
       btnRedo: $('btn-redo'),
       btnReset: $('btn-reset'),
@@ -517,6 +673,8 @@ window.HTMLEditor = window.HTMLEditor || {};
       wcOpenFile: $('wc-open-file'),
       wcOpenDir: $('wc-open-dir'),
       wcSample: $('wc-sample'),
+      wcResume: $('wc-resume'),
+      wcResumeInfo: $('wc-resume-info'),
       picker: $('picker'),
       pickerSub: $('picker-sub'),
       pickerList: $('picker-list'),
@@ -529,11 +687,13 @@ window.HTMLEditor = window.HTMLEditor || {};
       codePane: $('code-pane'),
       divider: $('divider'),
       main: $('main'),
+      previewPane: $('preview-pane'),
       hint: $('preview-hint'),
       hintTitle: $('preview-hint-title'),
       hintSub: $('preview-hint-sub'),
       statusMsg: $('status-msg'),
       statusWarn: $('status-warn'),
+      statusDraft: $('status-draft'),
       statusProj: $('status-proj'),
       statusSel: $('status-sel'),
       statusPos: $('status-pos'),
@@ -546,6 +706,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       getProject: function () { return ns.project.hasFiles() ? ns.project : null; },
       flushCodeCommit: function () { return app.flushCodeCommit(); },
       onSelect: function (el) { app.onSelect(el); },
+      onContextMenu: function (el, e) { ns.contextmenu.open(el, e); },
       onInlineEditStart: function () {
         app.statusMsg('内联编辑中：直接输入文字，按 Esc 或点击其他位置结束');
       },
@@ -561,8 +722,10 @@ window.HTMLEditor = window.HTMLEditor || {};
     });
 
     ns.codeEditor.init($('code'), $('hl'), $('gutter-inner'), {
-      onCommit: function (text) { app.onCodeCommit(text); }
+      onCommit: function (text) { app.onCodeCommit(text); },
+      onStatus: function (m) { app.statusMsg(m); }
     });
+    ns.codeEditor.initFind();
 
     ns.props.init($('props-panel'), {
       getEl: function () { return app.state.selected; },
@@ -571,11 +734,35 @@ window.HTMLEditor = window.HTMLEditor || {};
       deselect: function () { app.deselect(); }
     });
 
+    ns.insert.init({
+      flushCodeCommit: function () { return app.flushCodeCommit(); },
+      commit: function (label) { app.onPreviewCommit(label); },
+      status: function (m) { app.statusMsg(m); }
+    });
+
+    ns.tree.init($('tree-root'), {
+      getDoc: function () { return ns.preview.getDoc(); },
+      onSelect: function (el) {
+        ns.preview.select(el);
+        try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { }
+      },
+      commit: function (label) { app.onPreviewCommit(label); },
+      status: function (m) { app.statusMsg(m); }
+    });
+
+    ns.contextmenu.init($('ctx-menu'), {
+      pane: function () { return dom.previewPane; },
+      action: function (act) { ns.props.handleAction(act); },
+      insert: function (type) { ns.insert.insert(type); },
+      describe: describe
+    });
+
     wireToolbar();
     wireShortcuts();
     wireSplitter();
     wireDrop();
     wireCursorStatus();
+    initDraftResume();
 
     if (!ns.preview.isSandboxUsable()) {
       app.setWarn('当前环境（file://）下浏览器沙箱受限，已自动改用脚本禁用方案，功能不受影响');

@@ -66,6 +66,36 @@ window.HTMLEditor = window.HTMLEditor || {};
     if (btn) btn.textContent = el.style.visibility === 'hidden' ? '显示' : '隐藏';
   }
 
+  function updateSizeSection(el, cs) {
+    try {
+      const rect = el.getBoundingClientRect();
+      els.actual.textContent = '实际尺寸 ' + Math.round(rect.width) + ' × ' + Math.round(rect.height);
+    } catch (e) {
+      els.actual.textContent = '';
+    }
+    const win = cs ? null : el.ownerDocument.defaultView;
+    cs = cs || win.getComputedStyle(el);
+    els.w.value = el.style.width !== '' ? pxNum(el.style.width) : pxNum(cs.width);
+    els.h.value = el.style.height !== '' ? pxNum(el.style.height) : pxNum(cs.height);
+    els.pad.value = el.style.padding !== '' ? pxNum(el.style.padding) : pxNum(cs.paddingTop);
+    els.mar.value = el.style.margin !== '' ? pxNum(el.style.margin) : pxNum(cs.marginTop);
+    els.radius.value = el.style.borderRadius !== '' ? pxNum(el.style.borderRadius) : pxNum(cs.borderTopLeftRadius);
+  }
+
+  function refreshActual() {
+    const el = getEl();
+    if (!el) return;
+    try {
+      const rect = el.getBoundingClientRect();
+      els.actual.textContent = '实际尺寸 ' + Math.round(rect.width) + ' × ' + Math.round(rect.height);
+    } catch (e) { }
+  }
+
+  function pxNum(v) {
+    const n = parseFloat(v);
+    return isNaN(n) ? '' : Math.round(n);
+  }
+
   function showFor(el) {
     if (!el || !el.isConnected) {
       hide();
@@ -85,6 +115,8 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     const win = el.ownerDocument.defaultView;
     const cs = win.getComputedStyle(el);
+
+    updateSizeSection(el, cs);
 
     const fs = Math.round(parseFloat(cs.fontSize) || 16);
     els.fsRange.value = Math.max(8, Math.min(72, fs));
@@ -220,6 +252,30 @@ window.HTMLEditor = window.HTMLEditor || {};
       hooks.commit('修改透明度');
     });
 
+    function bindSizeInput(input, prop) {
+      input.addEventListener('input', function () {
+        const el = getEl();
+        if (!el) return;
+        const v = input.value;
+        if (v === '') return;
+        const n = parseFloat(v);
+        if (isNaN(n) || n < 0) return;
+        el.style.setProperty(prop, n + 'px');
+      });
+      input.addEventListener('change', function () {
+        const el = getEl();
+        if (!el) return;
+        if (input.value === '') el.style.removeProperty(prop);
+        hooks.commit('修改尺寸间距');
+        refreshActual();
+      });
+    }
+    bindSizeInput(els.w, 'width');
+    bindSizeInput(els.h, 'height');
+    bindSizeInput(els.pad, 'padding');
+    bindSizeInput(els.mar, 'margin');
+    bindSizeInput(els.radius, 'border-radius');
+
     els.imgAlt.addEventListener('change', function () {
       const el = getEl();
       if (!el || el.tagName !== 'IMG') return;
@@ -304,6 +360,21 @@ window.HTMLEditor = window.HTMLEditor || {};
         hooks.status('已清除该元素的内联样式');
         return;
 
+      case 'clearSize':
+        el.style.removeProperty('width');
+        el.style.removeProperty('height');
+        hooks.commit('清除宽高');
+        updateSizeSection(el);
+        return;
+
+      case 'clearSpacing':
+        el.style.removeProperty('padding');
+        el.style.removeProperty('margin');
+        el.style.removeProperty('border-radius');
+        hooks.commit('清除间距');
+        updateSizeSection(el);
+        return;
+
       case 'applyText':
         applyText(el, els.text.value);
         hooks.commit('替换文本');
@@ -382,6 +453,12 @@ window.HTMLEditor = window.HTMLEditor || {};
         close: $('pp-close'),
         text: $('pp-text'),
         textSec: $('pp-sec-text'),
+        actual: $('pp-actual'),
+        w: $('pp-w'),
+        h: $('pp-h'),
+        pad: $('pp-pad'),
+        mar: $('pp-mar'),
+        radius: $('pp-radius'),
         fsRange: $('pp-fs-range'),
         fsNum: $('pp-fs-num'),
         weight: $('pp-weight'),
@@ -407,7 +484,8 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     showFor: showFor,
     hide: hide,
-    focusImgSection: focusImgSection
+    focusImgSection: focusImgSection,
+    handleAction: handleAction
   };
 
 })(window.HTMLEditor);

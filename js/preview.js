@@ -114,6 +114,22 @@ window.HTMLEditor = window.HTMLEditor || {};
         select(el2);
         beginInlineEdit(el2, e);
       },
+      contextmenu: function (e) {
+        if (inlineEditing) return;
+        const el = e.target;
+        if (!el || el.nodeType !== 1) return;
+        e.preventDefault();
+        const path = getPath(el);
+        if (hooks.flushCodeCommit()) {
+          render(hooks.getSource(), { preserveScroll: true, tryReselect: false });
+        }
+        const doc2 = getDoc();
+        if (!doc2) return;
+        const el2 = (path ? resolvePath(doc2, path) : null) || el;
+        if (!el2 || el2.nodeType !== 1) return;
+        if (el2 !== doc2.documentElement && el2 !== doc2.head) select(el2);
+        if (hooks.onContextMenu) hooks.onContextMenu(el2, e);
+      },
       keydown: function (e) {
         const mod = e.ctrlKey || e.metaKey;
         if (inlineEditing) {
@@ -483,6 +499,12 @@ window.HTMLEditor = window.HTMLEditor || {};
     render: render,
 
     serialize: serialize,
+
+    getDoc: getDoc,
+
+    getPath: getPath,
+
+    resolvePath: resolvePath,
 
     getSelected: function () {
       return selected;

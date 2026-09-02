@@ -8,6 +8,169 @@ window.HTMLEditor = window.HTMLEditor || {};
   let lastCommitted = '';
   let lastLineCount = 0;
 
+  let findBar = null, fInput = null, fCount = null, rInput = null;
+  let matches = [];
+  let matchIdx = -1;
+
+  function escRe(s) {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function computeMatches(keepNear) {
+    const q = fInput.value;
+    matches = [];
+    matchIdx = -1;
+    if (!q) {
+      fCount.textContent = '';
+      return;
+    }
+    const hay = ta.value.toLowerCase();
+    const needle = q.toLowerCase();
+    let i = hay.indexOf(needle);
+    while (i >= 0) {
+      matches.push([i, i + q.length]);
+      i = hay.indexOf(needle, i + needle.length);
+    }
+    if (matches.length) {
+      if (keepNear !== undefined) {
+        matchIdx = 0;
+        for (let k = 0; k < matches.length; k++) {
+          if (matches[k][0] >= keepNear) { matchIdx = k; break; }
+        }
+      } else {
+        matchIdx = 0;
+      }
+    }
+    updateFindCount();
+  }
+
+  function updateFindCount() {
+    fCount.textContent = matches.length ? (matchIdx + 1) + '/' + matches.length : '无结果';
+  }
+
+  function scrollToPos(pos) {
+    const before = ta.value.slice(0, pos).split('\n');
+    const line = before.length - 1;
+    const lh = parseFloat(getComputedStyle(ta).lineHeight) || 19;
+    ta.scrollTop = Math.max(0, line * lh - ta.clientHeight / 2);
+    syncScroll();
+  }
+
+  function gotoMatch(step) {
+    if (!matches.length) return;
+    matchIdx = (matchIdx + step + matches.length) % matches.length;
+    const m = matches[matchIdx];
+    ta.focus();
+    ta.setSelectionRange(m[0], m[1]);
+    scrollToPos(m[0]);
+    updateFindCount();
+  }
+
+  function onEdited() {
+    updateGutter();
+    clearTimeout(hlTimer);
+    hlTimer = setTimeout(renderHighlight, 150);
+    scheduleCommit();
+  }
+
+  function replaceCurrent() {
+    if (!matches.length || matchIdx < 0) return;
+    const m = matches[matchIdx];
+    const rep = rInput.value;
+    ta.focus();
+    ta.setSelectionRange(m[0], m[1]);
+    let ok = false;
+    try { ok = document.execCommand('insertText', false, rep); } catch (e) { }
+    if (!ok) {
+      const v = ta.value;
+      ta.value = v.slice(0, m[0]) + rep + v.slice(m[1]);
+      onEdited();
+    }
+    computeMatches(m[0]);
+    if (matches.length) {
+      const m2 = matches[Math.min(matchIdx, matches.length - 1)];
+      ta.setSelectionRange(m2[0], m2[1]);
+      scrollToPos(m2[0]);
+    }
+    updateFindCount();
+  }
+
+  function replaceAll() {
+    const q = fInput.value;
+    if (!q) return;
+    const re = new RegExp(escRe(q), 'gi');
+    const n = (ta.value.match(re) || []).length;
+    if (!n) return;
+    const rep = rInput.value;
+    const before = ta.scrollTop;
+    ta.value = ta.value.replace(re, function () { return rep; });
+    ta.scrollTop = before;
+    onEdited();
+    computeMatches();
+    if (cb.onStatus) cb.onStatus('已替换 ' + n + ' 处');
+  }
+
+  function openFind() {
+    if (!findBar) return;
+    findBar.hidden = false;
+    fInput.focus();
+    fInput.select();
+    computeMatches(ta.selectionStart || 0);
+    if (matches.length) {
+      const m = matches[matchIdx];
+      ta.setSelectionRange(m[0], m[1]);
+      scrollToPos(m[0]);
+      updateFindCount();
+    }
+  }
+
+  function closeFind() {
+    if (!findBar) return;
+    findBar.hidden = true;
+    ta.focus();
+  }
+
+  function initFind() {
+    findBar = document.getElementById('find-bar');
+    fInput = document.getElementById('find-input');
+    fCount = document.getElementById('find-count');
+    rInput = document.getElementById('replace-input');
+
+    fInput.addEventListener('input', function () {
+      computeMatches(ta.selectionStart || 0);
+      if (matches.length) {
+        const m = matches[matchIdx];
+        ta.setSelectionRange(m[0], m[1]);
+        scrollToPos(m[0]);
+      }
+    });
+    fInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        gotoMatch(e.shiftKey ? -1 : 1);
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFind();
+      }
+    });
+    rInput.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        replaceCurrent();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        closeFind();
+      }
+    });
+    document.getElementById('find-next').addEventListener('click', function () { gotoMatch(1); });
+    document.getElementById('find-prev').addEventListener('click', function () { gotoMatch(-1); });
+    document.getElementById('find-replace').addEventListener('click', replaceCurrent);
+    document.getElementById('find-replace-all').addEventListener('click', replaceAll);
+    document.getElementById('find-close').addEventListener('click', closeFind);
+  }
+
   function esc(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
@@ -129,10 +292,7 @@ window.HTMLEditor = window.HTMLEditor || {};
 
       ta.addEventListener('input', function (e) {
         if (e && e.isComposing) return;
-        updateGutter();
-        clearTimeout(hlTimer);
-        hlTimer = setTimeout(renderHighlight, 150);
-        scheduleCommit();
+        onEdited();
       });
       ta.addEventListener('scroll', syncScroll);
       ta.addEventListener('keydown', function (e) {
@@ -154,6 +314,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       lastCommitted = html;
       updateGutter();
       renderHighlight();
+      if (findBar && !findBar.hidden) computeMatches();
     },
 
     getValue: function () {
@@ -176,6 +337,13 @@ window.HTMLEditor = window.HTMLEditor || {};
       const pos = ta.selectionStart || 0;
       const before = ta.value.slice(0, pos).split('\n');
       return { line: before.length, col: before[before.length - 1].length + 1 };
+    },
+
+    initFind: initFind,
+    openFind: openFind,
+    closeFind: closeFind,
+    isFindOpen: function () {
+      return !!findBar && !findBar.hidden;
     },
 
     refresh: syncScroll

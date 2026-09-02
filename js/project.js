@@ -149,6 +149,39 @@ window.HTMLEditor = window.HTMLEditor || {};
       return files.size;
     },
 
+    entries: function () {
+      const out = [];
+      files.forEach(function (e) { out.push({ path: e.path, file: e.file }); });
+      return out;
+    },
+
+    restoreFromDraft: function (entryList, savedHtmlPath) {
+      return Promise.resolve().then(async function () {
+        blobCache.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) { } });
+        blobCache.clear();
+        dataUrlCache.clear();
+        files.clear();
+        editedHtml.clear();
+        for (const e of entryList) {
+          const rel = normPath(String(e.path || ''));
+          if (!rel || !e.file) continue;
+          const ext = (rel.split('.').pop() || '').toLowerCase();
+          const entry = {
+            path: rel,
+            file: e.file,
+            ext: ext,
+            isImage: /^(png|jpe?g|gif|svg|webp|ico|bmp|avif)$/.test(ext)
+          };
+          if (ext === 'css') {
+            try { entry.cssText = await e.file.text(); } catch (err) { }
+          }
+          files.set(rel, entry);
+        }
+        htmlPath = savedHtmlPath && files.has(savedHtmlPath) ? savedHtmlPath : null;
+        return !!htmlPath;
+      });
+    },
+
     getHtmlPath: function () {
       return htmlPath;
     },

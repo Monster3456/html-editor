@@ -4,3 +4,6 @@ desktop.ini
 *.log
 .vscode/
 .idea/
+.agents/
+.claude/
+skills-lock.json

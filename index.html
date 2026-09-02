@@ -39,6 +39,41 @@
 
   <span class="tb-sep"></span>
 
+  <div class="menu-wrap" id="insert-menu">
+    <button class="btn" id="btn-insert" title="插入新元素到选中元素之后">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>插入</span>
+      <svg class="ic-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="menu" id="insert-menu-list" hidden>
+      <button class="menu-item" data-insert="h2"><span class="mi-tag">H2</span><span>标题</span></button>
+      <button class="menu-item" data-insert="h3"><span class="mi-tag">H3</span><span>副标题</span></button>
+      <button class="menu-item" data-insert="p"><span class="mi-tag">P</span><span>段落</span></button>
+      <button class="menu-item" data-insert="img"><span class="mi-tag">IMG</span><span>图片</span></button>
+      <button class="menu-item" data-insert="button"><span class="mi-tag">BTN</span><span>按钮</span></button>
+      <button class="menu-item" data-insert="a"><span class="mi-tag">A</span><span>链接</span></button>
+      <button class="menu-item" data-insert="hr"><span class="mi-tag">HR</span><span>分隔线</span></button>
+      <button class="menu-item" data-insert="div"><span class="mi-tag">DIV</span><span>容器</span></button>
+      <button class="menu-item" data-insert="ul"><span class="mi-tag">UL</span><span>列表</span></button>
+      <button class="menu-item" data-insert="blockquote"><span class="mi-tag">QTE</span><span>引用块</span></button>
+      <button class="menu-item" data-insert="video"><span class="mi-tag">VID</span><span>视频嵌入</span></button>
+    </div>
+  </div>
+
+  <span class="tb-sep"></span>
+
+  <div class="seg" id="device-seg" title="预览设备宽度">
+    <button class="seg-btn" data-w="375" title="手机 375px">
+      <svg viewBox="0 0 24 24"><rect x="7" y="2" width="10" height="20" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+    </button>
+    <button class="seg-btn" data-w="768" title="平板 768px">
+      <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+    </button>
+    <button class="seg-btn active" data-w="0" title="桌面 自适应">
+      <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="18" x2="12" y2="21"/></svg>
+    </button>
+  </div>
+
   <button class="btn icon-only" id="btn-undo" title="撤销 (Ctrl+Z)" disabled>
     <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
   </button>
@@ -71,10 +106,34 @@
 <input type="file" id="dir-input" webkitdirectory multiple hidden>
 
 <main id="main">
+  <aside id="tree-pane">
+    <div id="tree-head">
+      <span class="ch-label"><span class="ch-dot"></span>元素</span>
+      <button id="tree-toggle" title="折叠元素面板">
+        <svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+      </button>
+    </div>
+    <div id="tree-body"><div id="tree-root"></div></div>
+  </aside>
+
+  <button id="tree-collapsed-btn" title="展开元素面板" hidden>
+    <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+  </button>
+
   <section id="code-pane">
     <div id="code-head">
       <span class="ch-label"><span class="ch-dot"></span>源代码</span>
       <span id="code-size"></span>
+    </div>
+    <div id="find-bar" hidden>
+      <input type="text" id="find-input" placeholder="查找…" spellcheck="false">
+      <span id="find-count"></span>
+      <button class="fb-btn" id="find-prev" title="上一个 (Enter)">↑</button>
+      <button class="fb-btn" id="find-next" title="下一个 (Shift+Enter)">↓</button>
+      <input type="text" id="replace-input" placeholder="替换为…" spellcheck="false">
+      <button class="fb-btn" id="find-replace" title="替换当前">替换</button>
+      <button class="fb-btn" id="find-replace-all" title="全部替换">全部</button>
+      <button class="fb-btn" id="find-close" title="关闭 (Esc)">×</button>
     </div>
     <div id="code-body">
       <div id="gutter"><div id="gutter-inner">1</div></div>
@@ -88,7 +147,10 @@
   <div id="divider" title="拖动调整分栏"></div>
 
   <section id="preview-pane">
+    <div id="device-label" hidden></div>
     <iframe id="preview" sandbox="allow-same-origin" title="预览"></iframe>
+
+    <div id="ctx-menu" hidden></div>
 
     <div id="coach" hidden>
       <svg viewBox="0 0 24 24"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
@@ -125,6 +187,36 @@
           <div class="pp-title">文本内容</div>
           <textarea id="pp-text" rows="3" spellcheck="false" placeholder="替换元素的直接文字，换行会变成换行符，子元素不受影响"></textarea>
           <div class="pp-row"><button class="pp-btn" data-act="applyText">应用文本</button></div>
+        </div>
+
+        <div class="pp-sec" id="pp-sec-size">
+          <div class="pp-title">尺寸与间距</div>
+          <div class="pp-row"><span class="pp-actual" id="pp-actual">实际尺寸 — × —</span></div>
+          <div class="pp-row">
+            <label>宽</label>
+            <input type="number" id="pp-w" min="0" step="1" placeholder="自动">
+            <span class="pp-unit">px</span>
+            <label>高</label>
+            <input type="number" id="pp-h" min="0" step="1" placeholder="自动">
+            <span class="pp-unit">px</span>
+          </div>
+          <div class="pp-row">
+            <button class="pp-mini" data-act="clearSize">清除宽高</button>
+          </div>
+          <div class="pp-row">
+            <label>内边距</label>
+            <input type="number" id="pp-pad" min="0" step="1">
+            <span class="pp-unit">px</span>
+            <label>外边距</label>
+            <input type="number" id="pp-mar" min="0" step="1">
+            <span class="pp-unit">px</span>
+          </div>
+          <div class="pp-row">
+            <label>圆角</label>
+            <input type="number" id="pp-radius" min="0" step="1">
+            <span class="pp-unit">px</span>
+            <button class="pp-mini" data-act="clearSpacing">清除</button>
+          </div>
         </div>
 
         <div class="pp-sec">
@@ -220,6 +312,7 @@
 <footer id="statusbar">
   <span id="status-msg"></span>
   <span id="status-warn"></span>
+  <span id="status-draft"></span>
   <span class="sb-flex"></span>
   <span id="status-proj"></span>
   <span id="status-sel"></span>
@@ -249,6 +342,12 @@
     <h1>HTML 可视化编辑器</h1>
     <p class="welcome-sub">打开文件，在预览中点击元素即可编辑，完成后一键导出</p>
     <div class="welcome-actions">
+      <button class="wcard wcard-resume" id="wc-resume" hidden>
+        <span class="wcard-ic">
+          <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        </span>
+        <span class="wcard-tx"><span class="wcard-t">恢复上次编辑</span><span class="wcard-d" id="wc-resume-info"></span></span>
+      </button>
       <button class="wcard" id="wc-open-file">
         <span class="wcard-ic">
           <svg viewBox="0 0 24 24"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
@@ -276,9 +375,13 @@
 <script src="js/history.js"></script>
 <script src="js/io.js"></script>
 <script src="js/project.js"></script>
+<script src="js/draft.js"></script>
 <script src="js/codeEditor.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/props.js"></script>
+<script src="js/tree.js"></script>
+<script src="js/insert.js"></script>
+<script src="js/contextmenu.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
