@@ -344,14 +344,14 @@ window.HTMLEditor = window.HTMLEditor || {};
     });
 
     dom.fileInput.addEventListener('change', function () {
-      const fs = dom.fileInput.files;
+      const arr = Array.prototype.slice.call(dom.fileInput.files || []);
       dom.fileInput.value = '';
-      if (fs && fs.length) handleFiles(fs);
+      if (arr.length) handleFiles(arr);
     });
     dom.dirInput.addEventListener('change', function () {
-      const fs = dom.dirInput.files;
+      const arr = Array.prototype.slice.call(dom.dirInput.files || []);
       dom.dirInput.value = '';
-      if (fs && fs.length) handleFiles(fs);
+      if (arr.length) handleFiles(arr);
     });
 
     dom.wcOpenFile.addEventListener('click', function () { dom.fileInput.click(); });

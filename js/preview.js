@@ -7,9 +7,9 @@ window.HTMLEditor = window.HTMLEditor || {};
   const CLS_HOVER = '__editor_hover';
 
   const EDITOR_CSS = [
-    '.' + CLS_HOVER + ' { outline: 1px dashed rgba(77,159,255,.9) !important; outline-offset: 1px !important; cursor: pointer !important; }',
-    '.' + CLS_SELECTED + ' { outline: 2px solid #4d9fff !important; outline-offset: 1px !important; }',
-    '.' + CLS_SELECTED + '.' + CLS_HOVER + ' { outline: 2px solid #4d9fff !important; }'
+    '.' + CLS_HOVER + ' { outline: 1px dashed rgba(37,99,235,.8) !important; outline-offset: 1px !important; cursor: pointer !important; }',
+    '.' + CLS_SELECTED + ' { outline: 2px solid #2563eb !important; outline-offset: 1px !important; }',
+    '.' + CLS_SELECTED + '.' + CLS_HOVER + ' { outline: 2px solid #2563eb !important; }'
   ].join('\n');
 
   let iframe = null;
