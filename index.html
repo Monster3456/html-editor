@@ -98,6 +98,10 @@
         <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
         <span>恢复原始内容</span>
       </button>
+      <button class="menu-item" id="mi-keys">
+        <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="6.01" y2="10"/><line x1="10" y1="10" x2="10.01" y2="10"/><line x1="14" y1="10" x2="14.01" y2="10"/><line x1="18" y1="10" x2="18.01" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/></svg>
+        <span>快捷键</span><kbd>?</kbd>
+      </button>
       <div class="menu-sep"></div>
       <label class="menu-item menu-check" id="mi-scripts" title="默认禁用页面脚本以保证编辑稳定；开启后脚本会执行并可能干扰编辑">
         <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
@@ -109,6 +113,15 @@
   </div>
 
   <span class="tb-flex"></span>
+
+  <div class="menu-wrap" id="page-menu" hidden>
+    <button class="btn" id="btn-page" title="切换项目中的其他页面">
+      <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span>页面</span>
+      <svg class="ic-caret" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="menu menu-right" id="page-menu-list" hidden></div>
+  </div>
 
   <span id="dirty-dot" title="有未导出的修改" hidden>●</span>
   <input type="text" id="filename" value="未命名.html" title="导出文件名（可修改）" spellcheck="false">
@@ -176,6 +189,15 @@
 
     <div id="drag-line" hidden></div>
 
+    <div id="resize-layer" hidden>
+      <div class="rz-handle rz-e" data-rz="e" title="拖动调整宽度"></div>
+      <div class="rz-handle rz-s" data-rz="s" title="拖动调整高度"></div>
+      <div class="rz-handle rz-se" data-rz="se" title="拖动调整宽高（按住 Shift 锁定比例）"></div>
+    </div>
+
+    <div id="rz-capture" hidden></div>
+    <div id="rz-readout" hidden></div>
+
     <div id="hover-badge" hidden></div>
 
     <div id="toast" hidden>
@@ -204,6 +226,14 @@
         <button id="pp-close" title="关闭面板 (Esc)">×</button>
       </div>
       <div class="pp-body">
+        <div class="pp-sec" id="pp-sec-class">
+          <div class="pp-title">class 类名</div>
+          <div id="ppc-chips" class="ppc-chips"></div>
+          <div class="ppc-add">
+            <input type="text" id="ppc-input" placeholder="添加 class，回车确认（空格分隔多个）" spellcheck="false">
+          </div>
+        </div>
+
         <div class="pp-sec">
           <div class="pp-title">通用操作</div>
           <div class="pp-row pp-btns">
@@ -385,6 +415,42 @@
   </div>
 </div>
 
+<div id="keys-overlay" class="overlay" hidden>
+  <div class="modal" id="keys-modal">
+    <h2>快捷键</h2>
+    <div class="keys-grid">
+      <div class="keys-col">
+        <div class="keys-title">全局</div>
+        <div class="keys-row"><span>导出 HTML</span><kbd>Ctrl+S</kbd></div>
+        <div class="keys-row"><span>打开文件</span><kbd>Ctrl+O</kbd></div>
+        <div class="keys-row"><span>查找 / 替换</span><kbd>Ctrl+F</kbd></div>
+        <div class="keys-row"><span>撤销</span><kbd>Ctrl+Z</kbd></div>
+        <div class="keys-row"><span>重做</span><kbd>Ctrl+Y</kbd></div>
+        <div class="keys-row"><span>本面板</span><kbd>?</kbd></div>
+      </div>
+      <div class="keys-col">
+        <div class="keys-title">元素编辑</div>
+        <div class="keys-row"><span>复制选中元素</span><kbd>Ctrl+D</kbd></div>
+        <div class="keys-row"><span>删除选中元素</span><kbd>Del</kbd></div>
+        <div class="keys-row"><span>上 / 下 / 左 / 右移动选中</span><kbd>↑ ↓ ← →</kbd></div>
+        <div class="keys-row"><span>双击元素</span><kbd>内联编辑文字</kbd></div>
+        <div class="keys-row"><span>右键元素</span><kbd>快捷菜单</kbd></div>
+        <div class="keys-row"><span>取消选中 / 关闭弹层</span><kbd>Esc</kbd></div>
+      </div>
+      <div class="keys-col">
+        <div class="keys-title">源代码</div>
+        <div class="keys-row"><span>缩进（两个空格）</span><kbd>Tab</kbd></div>
+        <div class="keys-row"><span>查找下一处</span><kbd>Enter</kbd></div>
+        <div class="keys-row"><span>查找上一处</span><kbd>Shift+Enter</kbd></div>
+        <div class="keys-row"><span>关闭查找栏</span><kbd>Esc</kbd></div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="keys-close">知道了</button>
+    </div>
+  </div>
+</div>
+
 <div id="welcome" class="overlay">
   <div class="welcome-card">
     <div class="welcome-logo">
@@ -430,6 +496,7 @@
 <script src="js/codeEditor.js"></script>
 <script src="js/format.js"></script>
 <script src="js/preview.js"></script>
+<script src="js/resize.js"></script>
 <script src="js/props.js"></script>
 <script src="js/tree.js"></script>
 <script src="js/insert.js"></script>

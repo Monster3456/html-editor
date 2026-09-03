@@ -104,6 +104,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     panel.hidden = false;
 
     buildBreadcrumb(el);
+    renderClasses(el);
 
     const win = el.ownerDocument.defaultView;
     const cs = win.getComputedStyle(el);
@@ -187,6 +188,13 @@ window.HTMLEditor = window.HTMLEditor || {};
       hooks.deselect();
     });
 
+    els.classInput.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter' || e.isComposing) return;
+      e.preventDefault();
+      addUserClasses(getEl(), els.classInput.value);
+      els.classInput.value = '';
+    });
+
     els.fsRange.addEventListener('input', function () {
       const el = getEl();
       if (!el) return;
@@ -263,6 +271,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         const n = parseFloat(v);
         if (isNaN(n) || n < 0) return;
         el.style.setProperty(prop, n + 'px');
+        if (ns.resize) ns.resize.refresh();
       });
       input.addEventListener('change', function () {
         const el = getEl();
@@ -386,6 +395,70 @@ window.HTMLEditor = window.HTMLEditor || {};
       bc.appendChild(makeCrumbItem(n, n === el));
     }
     bc.title = chain.slice().reverse().map(describeShort).join(' › ');
+  }
+
+  function isEditorClass(c) {
+    return c === ns.preview.CLS_SELECTED || c === ns.preview.CLS_HOVER || c === ns.preview.CLS_DRAGGING;
+  }
+
+  function userClasses(el) {
+    const out = [];
+    for (let i = 0; i < el.classList.length; i++) {
+      if (!isEditorClass(el.classList[i])) out.push(el.classList[i]);
+    }
+    return out;
+  }
+
+  function renderClasses(el) {
+    const box = els.classChips;
+    box.textContent = '';
+    const list = el ? userClasses(el) : [];
+    if (!list.length) {
+      const none = document.createElement('span');
+      none.className = 'ppc-none';
+      none.textContent = '无 class';
+      box.appendChild(none);
+      return;
+    }
+    list.forEach(function (c) {
+      const chip = document.createElement('span');
+      chip.className = 'ppc-chip';
+      const name = document.createElement('span');
+      name.className = 'ppc-name';
+      name.textContent = c;
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.className = 'ppc-x';
+      x.title = '移除 class "' + c + '"';
+      x.textContent = '×';
+      x.addEventListener('click', function () { removeUserClass(el, c); });
+      chip.appendChild(name);
+      chip.appendChild(x);
+      box.appendChild(chip);
+    });
+  }
+
+  function removeUserClass(el, c) {
+    if (!el || !el.isConnected || isEditorClass(c) || !el.classList.contains(c)) return;
+    el.classList.remove(c);
+    ns.preview.stripEmptyClass(el);
+    hooks.commit('修改 class');
+    renderClasses(el);
+    buildBreadcrumb(el);
+    feedback('已移除 class "' + c + '"');
+  }
+
+  function addUserClasses(el, raw) {
+    if (!el || !el.isConnected) return;
+    const names = String(raw).trim().split(/\s+/).filter(function (c) {
+      return c && !isEditorClass(c) && !el.classList.contains(c);
+    });
+    if (!names.length) return;
+    names.forEach(function (c) { el.classList.add(c); });
+    hooks.commit('修改 class');
+    renderClasses(el);
+    buildBreadcrumb(el);
+    feedback('已添加 class ' + names.map(function (c) { return '"' + c + '"'; }).join('、'));
   }
 
   function cloneCellShallow(c) {
@@ -648,6 +721,8 @@ window.HTMLEditor = window.HTMLEditor || {};
       els = {
         breadcrumb: $('pp-breadcrumb'),
         close: $('pp-close'),
+        classChips: $('ppc-chips'),
+        classInput: $('ppc-input'),
         text: $('pp-text'),
         textSec: $('pp-sec-text'),
         tableSec: $('pp-sec-table'),

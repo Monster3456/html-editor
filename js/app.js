@@ -96,11 +96,35 @@ window.HTMLEditor = window.HTMLEditor || {};
       ns.props.hide();
     }
     ns.tree.markSelected(el);
+    ns.resize.refresh();
   };
 
   app.deselect = function () {
     ns.preview.clearSelection();
     app.onSelect(null);
+  };
+
+  app.navigateSelection = function (key) {
+    const el = ns.preview.getSelected();
+    if (!el || !el.isConnected) return false;
+    let next = null;
+    if (key === 'ArrowRight') next = el.nextElementSibling;
+    else if (key === 'ArrowLeft') next = el.previousElementSibling;
+    else if (key === 'ArrowDown') next = el.firstElementChild;
+    else if (key === 'ArrowUp') {
+      const p = el.parentElement;
+      if (p && p.tagName !== 'HTML') next = p;
+    }
+    if (!next || next.nodeType !== 1) return false;
+    ns.preview.select(next);
+    try { next.scrollIntoView({ block: 'nearest', inline: 'nearest' }); } catch (e) { }
+    return true;
+  };
+
+  app.deleteSelected = function () {
+    const el = ns.preview.getSelected();
+    if (!el || !el.isConnected) return;
+    ns.props.handleAction('delete');
   };
 
   app.flushCodeCommit = function () {
@@ -128,6 +152,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     refreshToolbar();
     updateStatusSize();
     ns.tree.scheduleRebuild();
+    ns.resize.refresh();
     scheduleDraftSave();
   };
 
@@ -146,6 +171,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     ns.tree.rebuild();
     ns.contextmenu.attachDoc(doc);
     applyDeviceToFrame();
+    ns.resize.syncDoc(doc);
   };
 
   app.loadDocument = function (doc, opts) {
@@ -177,10 +203,53 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.coach.hidden = true;
   }
 
+  function openKeysDialog() {
+    dom.keysOverlay.hidden = false;
+  }
+
+  function closeKeysDialog() {
+    dom.keysOverlay.hidden = true;
+  }
+
   function updateProjectStatus() {
     const n = ns.project.fileCount();
     const p = ns.project.getHtmlPath();
     dom.statusProj.textContent = n > 1 ? '项目 · ' + n + ' 个文件 · ' + p : '';
+    buildPageMenu();
+  }
+
+  function buildPageMenu() {
+    const pages = ns.project.pages();
+    const cur = ns.project.getHtmlPath();
+    dom.pageMenu.hidden = pages.length < 2;
+    if (pages.length < 2) {
+      dom.pageMenuList.hidden = true;
+      return;
+    }
+    dom.pageMenuList.textContent = '';
+    pages.forEach(function (p) {
+      const isCur = p === cur;
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'menu-item mi-page' + (isCur ? ' cur' : '');
+      item.title = p;
+      const check = document.createElement('span');
+      check.className = 'mi-check';
+      check.textContent = isCur ? '✓' : '';
+      const label = document.createElement('span');
+      label.className = 'mi-page-path';
+      label.textContent = p;
+      item.appendChild(check);
+      item.appendChild(label);
+      item.addEventListener('click', function () {
+        dom.pageMenuList.hidden = true;
+        if (p === ns.project.getHtmlPath()) return;
+        loadHtmlFromProject(p).then(function () {
+          app.statusMsg('已切换页面：' + p);
+        });
+      });
+      dom.pageMenuList.appendChild(item);
+    });
   }
 
   app.openProject = function (fileArray) {
@@ -493,6 +562,11 @@ window.HTMLEditor = window.HTMLEditor || {};
       if (!dom.openMenu.contains(e.target)) dom.openMenuList.hidden = true;
       if (!dom.insertMenu.contains(e.target)) dom.insertMenuList.hidden = true;
       if (!dom.moreMenu.contains(e.target)) dom.moreMenuList.hidden = true;
+      if (!dom.pageMenu.contains(e.target)) dom.pageMenuList.hidden = true;
+    });
+    dom.btnPage.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dom.pageMenuList.hidden = !dom.pageMenuList.hidden;
     });
     dom.miOpenFile.addEventListener('click', function () {
       dom.openMenuList.hidden = true;
@@ -520,6 +594,14 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.miReset.addEventListener('click', function () {
       dom.moreMenuList.hidden = true;
       app.resetDoc();
+    });
+    dom.miKeys.addEventListener('click', function () {
+      dom.moreMenuList.hidden = true;
+      openKeysDialog();
+    });
+    dom.keysClose.addEventListener('click', closeKeysDialog);
+    dom.keysOverlay.addEventListener('click', function (e) {
+      if (e.target === dom.keysOverlay) closeKeysDialog();
     });
 
     dom.btnInsert.addEventListener('click', function (e) {
@@ -647,6 +729,10 @@ window.HTMLEditor = window.HTMLEditor || {};
           ns.codeEditor.closeFind();
           return;
         }
+        if (!dom.keysOverlay.hidden) {
+          closeKeysDialog();
+          return;
+        }
         const t = e.target;
         if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
         if (!dom.picker.hidden) {
@@ -656,6 +742,18 @@ window.HTMLEditor = window.HTMLEditor || {};
           return;
         }
         app.deselect();
+      } else if (e.key === '?') {
+        const t = e.target;
+        if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+        e.preventDefault();
+        openKeysDialog();
+      } else if (/^Arrow/.test(e.key) || e.key === 'Delete') {
+        const t = e.target;
+        if (t && (t.isContentEditable || t.tagName === 'INPUT' || t.tagName === 'TEXTAREA')) return;
+        if (!app.state.selected || !app.state.selected.isConnected) return;
+        e.preventDefault();
+        if (e.key === 'Delete') app.deleteSelected();
+        else app.navigateSelection(e.key);
       }
     });
 
@@ -736,6 +834,9 @@ window.HTMLEditor = window.HTMLEditor || {};
       miRefresh: $('mi-refresh'),
       miNewwin: $('mi-newwin'),
       miReset: $('mi-reset'),
+      miKeys: $('mi-keys'),
+      keysOverlay: $('keys-overlay'),
+      keysClose: $('keys-close'),
       deviceSeg: $('device-seg'),
       deviceLabel: $('device-label'),
       treePane: $('tree-pane'),
@@ -746,6 +847,9 @@ window.HTMLEditor = window.HTMLEditor || {};
       chkScripts: $('chk-scripts'),
       filename: $('filename'),
       dirtyDot: $('dirty-dot'),
+      pageMenu: $('page-menu'),
+      pageMenuList: $('page-menu-list'),
+      btnPage: $('btn-page'),
       welcome: $('welcome'),
       wcOpenFile: $('wc-open-file'),
       wcOpenDir: $('wc-open-dir'),
@@ -795,11 +899,14 @@ window.HTMLEditor = window.HTMLEditor || {};
       onInlineEditCommit: function () { app.onPreviewCommit('内联编辑文本'); },
       onRendered: function (d) { app.onRendered(d); },
       onRenderError: function () { app.statusMsg('渲染预览失败，请检查源码'); },
-      onShortcut: function (k) {
+      onShortcut: function (k, arg) {
         if (k === 'save') app.export();
         else if (k === 'undo') app.undo();
         else if (k === 'redo') app.redo();
         else if (k === 'duplicate') app.duplicateSelected();
+        else if (k === 'keys') openKeysDialog();
+        else if (k === 'nav') app.navigateSelection(arg);
+        else if (k === 'delete') app.deleteSelected();
       },
       onDropFiles: function (files) { app.openDropped(files); },
       onDragCommit: function (el) {
@@ -821,6 +928,11 @@ window.HTMLEditor = window.HTMLEditor || {};
       feedback: function (m) { app.toast(m); },
       deselect: function () { app.deselect(); },
       select: function (el) { ns.preview.select(el); }
+    });
+
+    ns.resize.init(dom.previewPane, {
+      commit: function (label) { app.onPreviewCommit(label); },
+      feedback: function (m) { app.toast(m); }
     });
 
     ns.insert.init({

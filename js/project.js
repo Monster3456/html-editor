@@ -155,6 +155,19 @@ window.HTMLEditor = window.HTMLEditor || {};
       return out;
     },
 
+    pages: function () {
+      const out = [];
+      files.forEach(function (e) {
+        if (/^(html?|xhtml)$/.test(e.ext)) out.push(e.path);
+      });
+      out.sort(function (a, b) {
+        const ai = /index\.html?$/i.test(a) ? 0 : 1;
+        const bi = /index\.html?$/i.test(b) ? 0 : 1;
+        return ai - bi || a.localeCompare(b);
+      });
+      return out;
+    },
+
     restoreFromDraft: function (entryList, savedHtmlPath) {
       return Promise.resolve().then(async function () {
         blobCache.forEach(function (u) { try { URL.revokeObjectURL(u); } catch (e) { } });

@@ -108,6 +108,7 @@ window.HTMLEditor = window.HTMLEditor || {};
   function beginDragVisual() {
     drag.active = true;
     hideBadge();
+    if (ns.resize) ns.resize.refresh();
     try {
       drag.el.classList.add(CLS_DRAGGING);
       drag.el.ownerDocument.body.classList.add(CLS_DRAG_ACTIVE);
@@ -124,6 +125,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     } catch (e) { }
     document.body.style.cursor = '';
     hideDragLine();
+    if (ns.resize) ns.resize.refresh();
   }
 
   function inBodySubtree(el) {
@@ -378,6 +380,13 @@ window.HTMLEditor = window.HTMLEditor || {};
         } else if (e.key === 'Escape') {
           clearSelection();
           hooks.onSelect(null);
+        } else if (e.key === '?') {
+          e.preventDefault();
+          hooks.onShortcut('keys');
+        } else if (selected && (/^Arrow/.test(e.key) || e.key === 'Delete')) {
+          e.preventDefault();
+          if (e.key === 'Delete') hooks.onShortcut('delete');
+          else hooks.onShortcut('nav', e.key);
         }
       },
       focusout: function () {
@@ -647,6 +656,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       } catch (err) { }
     }
     hooks.onInlineEditStart(el);
+    if (ns.resize) ns.resize.refresh();
   }
 
   function endInlineEdit(opts) {
@@ -656,6 +666,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     const el = s.el;
     if (s.prevCE === null) el.removeAttribute('contenteditable');
     else el.setAttribute('contenteditable', s.prevCE);
+    if (ns.resize) ns.resize.refresh();
     if (opts && opts.commit) hooks.onInlineEditCommit(el);
   }
 
