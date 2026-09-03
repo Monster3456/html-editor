@@ -5,11 +5,16 @@ window.HTMLEditor = window.HTMLEditor || {};
   const EDITOR_STYLE_ID = '__editor_style';
   const CLS_SELECTED = '__editor_selected';
   const CLS_HOVER = '__editor_hover';
+  const CLS_DRAGGING = '__editor_dragging';
+  const CLS_DRAG_ACTIVE = '__editor_drag_active';
+  const DRAG_THRESHOLD_SQ = 16;
 
   const EDITOR_CSS = [
     '.' + CLS_HOVER + ' { outline: 1px dashed rgba(37,99,235,.8) !important; outline-offset: 1px !important; cursor: pointer !important; }',
     '.' + CLS_SELECTED + ' { outline: 2px solid #2563eb !important; outline-offset: 1px !important; }',
-    '.' + CLS_SELECTED + '.' + CLS_HOVER + ' { outline: 2px solid #2563eb !important; }'
+    '.' + CLS_SELECTED + '.' + CLS_HOVER + ' { outline: 2px solid #2563eb !important; }',
+    '.' + CLS_DRAGGING + ' { opacity: .45 !important; }',
+    'body.' + CLS_DRAG_ACTIVE + ', body.' + CLS_DRAG_ACTIVE + ' * { cursor: grabbing !important; user-select: none !important; -webkit-user-select: none !important; }'
   ].join('\n');
 
   let iframe = null;
@@ -21,6 +26,9 @@ window.HTMLEditor = window.HTMLEditor || {};
   let sandboxWorks = true;
   let pendingRender = null;
   let badgeEl = null;
+  let dragLineEl = null;
+  let drag = null;
+  let suppressClick = false;
 
   function getDoc() {
     try { return iframe.contentDocument; } catch (e) { return null; }
@@ -71,6 +79,123 @@ window.HTMLEditor = window.HTMLEditor || {};
     return hooks.getScriptsEnabled() ? 'allow-same-origin allow-scripts' : 'allow-same-origin';
   }
 
+  function getDragLine() {
+    if (dragLineEl) return dragLineEl;
+    dragLineEl = document.getElementById('drag-line');
+    return dragLineEl;
+  }
+
+  function hideDragLine() {
+    const l = getDragLine();
+    if (l) l.hidden = true;
+  }
+
+  function showDragLine(target, before) {
+    const l = getDragLine();
+    if (!l || !iframe) return;
+    let rect;
+    try { rect = target.getBoundingClientRect(); } catch (e) { return; }
+    const frameRect = iframe.getBoundingClientRect();
+    const paneRect = l.parentNode.getBoundingClientRect();
+    const offX = frameRect.left - paneRect.left;
+    const offY = frameRect.top - paneRect.top;
+    l.style.left = (offX + rect.left) + 'px';
+    l.style.top = (offY + (before ? rect.top : rect.bottom) - 1) + 'px';
+    l.style.width = rect.width + 'px';
+    l.hidden = false;
+  }
+
+  function beginDragVisual() {
+    drag.active = true;
+    hideBadge();
+    try {
+      drag.el.classList.add(CLS_DRAGGING);
+      drag.el.ownerDocument.body.classList.add(CLS_DRAG_ACTIVE);
+    } catch (e) { }
+    document.body.style.cursor = 'grabbing';
+  }
+
+  function cleanupDragVisual(d) {
+    try {
+      d.el.classList.remove(CLS_DRAGGING);
+      stripEmptyClass(d.el);
+      const b = d.el.ownerDocument.body;
+      if (b) b.classList.remove(CLS_DRAG_ACTIVE);
+    } catch (e) { }
+    document.body.style.cursor = '';
+    hideDragLine();
+  }
+
+  function inBodySubtree(el) {
+    try {
+      const d = el.ownerDocument;
+      return !!(d && d.body && d.body.contains(el) && el !== d.body);
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function stripEmptyClass(el) {
+    try {
+      if (el && el.getAttribute('class') === '') el.removeAttribute('class');
+    } catch (e) { }
+  }
+
+  function validDropTarget(t, dragged) {
+    if (!t || t.nodeType !== 1 || t === dragged || dragged.contains(t)) return false;
+    if (!inBodySubtree(t)) return false;
+    try {
+      const sv = t.closest('svg');
+      if (sv && sv !== t) return false;
+      const ma = t.closest('math');
+      if (ma && ma !== t) return false;
+    } catch (e) { }
+    const rect = t.getBoundingClientRect();
+    return rect.width > 0 || rect.height > 0;
+  }
+
+  function updateDragTarget(e) {
+    const t = e.target;
+    if (validDropTarget(t, drag.el)) {
+      const rect = t.getBoundingClientRect();
+      drag.target = t;
+      drag.before = (e.clientY - rect.top) < rect.height / 2;
+      showDragLine(t, drag.before);
+    } else {
+      drag.target = null;
+      hideDragLine();
+    }
+  }
+
+  function finishDrag(d) {
+    cleanupDragVisual(d);
+    const t = d.target;
+    if (!t || !t.isConnected || !d.el.isConnected) return;
+    if (!validDropTarget(t, d.el)) return;
+    const ref = d.before ? t : t.nextSibling;
+    if (ref === d.el) return;
+    if (d.el.parentNode === t.parentNode && d.el.nextSibling === ref) return;
+    t.parentNode.insertBefore(d.el, ref);
+    if (hooks.onDragCommit) hooks.onDragCommit(d.el);
+  }
+
+  function cancelDrag() {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    if (d.active) {
+      cleanupDragVisual(d);
+      suppressClick = true;
+    }
+  }
+
+  function resetDragState() {
+    if (!drag) return;
+    const d = drag;
+    drag = null;
+    if (d.active) cleanupDragVisual(d);
+  }
+
   function testSandboxAccess() {
     const f = document.createElement('iframe');
     f.setAttribute('sandbox', 'allow-same-origin');
@@ -107,6 +232,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     hookedDoc = d;
     handlers = {
       mouseover: function (e) {
+        if (drag && drag.active) return;
         if (inlineEditing || !e.target || e.target.nodeType !== 1) return;
         if (e.target === selected) return;
         e.target.classList.add(CLS_HOVER);
@@ -115,9 +241,50 @@ window.HTMLEditor = window.HTMLEditor || {};
       mouseout: function (e) {
         if (!e.target || e.target.nodeType !== 1) return;
         e.target.classList.remove(CLS_HOVER);
+        stripEmptyClass(e.target);
         if (!e.relatedTarget || e.relatedTarget.nodeType !== 1) hideBadge();
       },
+      mousedown: function (e) {
+        if (e.button !== 0 || inlineEditing || !selected) return;
+        if (/^(HTML|HEAD|BODY)$/.test(selected.tagName)) return;
+        if (!inBodySubtree(selected)) return;
+        if (!(e.target === selected || selected.contains(e.target))) return;
+        drag = { el: selected, startX: e.clientX, startY: e.clientY, active: false, target: null, before: false };
+      },
+      mousemove: function (e) {
+        if (!drag) return;
+        if (!(e.buttons & 1)) {
+          if (drag.active) cancelDrag();
+          else drag = null;
+          return;
+        }
+        if (!drag.active) {
+          const dx = e.clientX - drag.startX;
+          const dy = e.clientY - drag.startY;
+          if (dx * dx + dy * dy < DRAG_THRESHOLD_SQ) return;
+          beginDragVisual();
+        }
+        e.preventDefault();
+        updateDragTarget(e);
+      },
+      mouseup: function () {
+        if (!drag) return;
+        const d = drag;
+        drag = null;
+        if (!d.active) return;
+        suppressClick = true;
+        finishDrag(d);
+      },
+      dragstart: function (e) {
+        if (drag) e.preventDefault();
+      },
       click: function (e) {
+        if (suppressClick) {
+          suppressClick = false;
+          e.preventDefault();
+          e.stopPropagation();
+          return;
+        }
         hideBadge();
         if (inlineEditing) {
           if (!inlineEditing.el.contains(e.target)) e.preventDefault();
@@ -175,6 +342,13 @@ window.HTMLEditor = window.HTMLEditor || {};
         if (hooks.onContextMenu) hooks.onContextMenu(el2, e);
       },
       keydown: function (e) {
+        if (drag && drag.active) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            cancelDrag();
+          }
+          return;
+        }
         const mod = e.ctrlKey || e.metaKey;
         if (inlineEditing) {
           if (e.key === 'Escape') {
@@ -197,6 +371,9 @@ window.HTMLEditor = window.HTMLEditor || {};
           } else if (k === 'y' || (k === 'z' && e.shiftKey)) {
             e.preventDefault();
             hooks.onShortcut('redo');
+          } else if (k === 'd') {
+            e.preventDefault();
+            hooks.onShortcut('duplicate');
           }
         } else if (e.key === 'Escape') {
           clearSelection();
@@ -355,6 +532,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       path = getPath(selected);
     }
     abandonInlineEdit();
+    resetDragState();
     clearSelection();
     hideBadge();
 
@@ -433,6 +611,7 @@ window.HTMLEditor = window.HTMLEditor || {};
   function clearSelection() {
     if (selected) {
       try { selected.classList.remove(CLS_SELECTED); } catch (e) { }
+      stripEmptyClass(selected);
       selected = null;
     }
   }
@@ -490,10 +669,16 @@ window.HTMLEditor = window.HTMLEditor || {};
     if (!d || !d.documentElement) return hooks.getSource();
     const clone = d.documentElement.cloneNode(true);
     clone.querySelectorAll('#' + EDITOR_STYLE_ID).forEach(function (n) { n.remove(); });
-    clone.querySelectorAll('.' + CLS_SELECTED + ', .' + CLS_HOVER).forEach(function (n) {
-      n.classList.remove(CLS_SELECTED, CLS_HOVER);
+    clone.querySelectorAll('.' + CLS_SELECTED + ', .' + CLS_HOVER + ', .' + CLS_DRAGGING).forEach(function (n) {
+      n.classList.remove(CLS_SELECTED, CLS_HOVER, CLS_DRAGGING);
       if (!n.getAttribute('class')) n.removeAttribute('class');
     });
+    clone.querySelectorAll('[class=""]').forEach(function (n) { n.removeAttribute('class'); });
+    const bodyClone = clone.querySelector('body');
+    if (bodyClone) {
+      bodyClone.classList.remove(CLS_DRAG_ACTIVE);
+      if (!bodyClone.getAttribute('class')) bodyClone.removeAttribute('class');
+    }
     clone.querySelectorAll('script[data-editor-neutered]').forEach(function (s) {
       const orig = s.getAttribute('data-editor-neutered');
       if (orig) s.setAttribute('type', orig);
@@ -531,11 +716,29 @@ window.HTMLEditor = window.HTMLEditor || {};
     EDITOR_STYLE_ID: EDITOR_STYLE_ID,
     CLS_SELECTED: CLS_SELECTED,
     CLS_HOVER: CLS_HOVER,
+    CLS_DRAGGING: CLS_DRAGGING,
+    stripEmptyClass: stripEmptyClass,
 
     init: function (iframeEl, appHooks) {
       iframe = iframeEl;
       hooks = appHooks;
       sandboxWorks = testSandboxAccess();
+
+      // 拖拽进行中，指针离开 iframe 后事件落在父页面：这里接管取消/无效化逻辑
+      document.addEventListener('mousemove', function (e) {
+        if (!drag || !drag.active) return;
+        if (!iframe || !iframe.parentNode || !iframe.isConnected) { cancelDrag(); return; }
+        const pr = iframe.parentNode.getBoundingClientRect();
+        if (e.clientX < pr.left || e.clientX > pr.right || e.clientY < pr.top || e.clientY > pr.bottom) {
+          cancelDrag();
+        } else {
+          drag.target = null;
+          hideDragLine();
+        }
+      });
+      document.addEventListener('mouseup', function () {
+        if (drag) cancelDrag();
+      });
     },
 
     isSandboxUsable: function () {
@@ -569,6 +772,12 @@ window.HTMLEditor = window.HTMLEditor || {};
     isInlineEditing: function () {
       return !!inlineEditing;
     },
+
+    isDragging: function () {
+      return !!(drag && drag.active);
+    },
+
+    cancelDrag: cancelDrag,
 
     refresh: function () {
       render(hooks.getSource());

@@ -242,6 +242,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       const el = row.__el;
       if (el) {
         try { el.classList.remove(ns.preview.CLS_HOVER); } catch (err) { }
+        ns.preview.stripEmptyClass(el);
       }
     });
 

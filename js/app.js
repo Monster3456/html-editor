@@ -155,6 +155,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.filename.value = app.state.fileName;
     ns.history.reset(doc.html, '打开文件');
     ns.codeEditor.setValue(doc.html);
+    app.deselect();
     ns.preview.render(doc.html);
     updateDirty();
     refreshToolbar();
@@ -349,6 +350,31 @@ window.HTMLEditor = window.HTMLEditor || {};
     app.statusMsg('已恢复原始内容');
   };
 
+  app.formatSource = function () {
+    app.flushCodeCommit();
+    const src = app.state.source;
+    const out = ns.formatHTML(src);
+    if (out === src) {
+      app.statusMsg('源码已是格式化状态，无需调整');
+      return;
+    }
+    app.state.source = out;
+    ns.codeEditor.setValue(out);
+    ns.history.commit(out, '格式化源码');
+    ns.preview.render(out);
+    updateDirty();
+    refreshToolbar();
+    updateStatusSize();
+    scheduleDraftSave();
+    app.toast('源码已格式化');
+  };
+
+  app.duplicateSelected = function () {
+    if (ns.preview.isInlineEditing()) return;
+    app.flushCodeCommit();
+    ns.props.handleAction('clone');
+  };
+
   app.refreshPreview = function () {
     ns.preview.refresh();
   };
@@ -521,6 +547,7 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     dom.codeToggle.addEventListener('click', function () { collapseCode(true); });
     dom.codeCollapsedBtn.addEventListener('click', function () { collapseCode(false); });
+    dom.codeFormat.addEventListener('click', app.formatSource);
     try {
       if (localStorage.getItem('he:code') === '0') collapseCode(true);
     } catch (e) { }
@@ -598,6 +625,10 @@ window.HTMLEditor = window.HTMLEditor || {};
         } else if (k === 'f') {
           e.preventDefault();
           ns.codeEditor.openFind();
+        } else if (k === 'd') {
+          if (e.target && (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+          e.preventDefault();
+          app.duplicateSelected();
         } else if (k === 'z' && !e.shiftKey) {
           if (e.target && (e.target.isContentEditable || e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
           e.preventDefault();
@@ -608,6 +639,10 @@ window.HTMLEditor = window.HTMLEditor || {};
           app.redo();
         }
       } else if (e.key === 'Escape') {
+        if (ns.preview.isDragging()) {
+          ns.preview.cancelDrag();
+          return;
+        }
         if (ns.codeEditor.isFindOpen()) {
           ns.codeEditor.closeFind();
           return;
@@ -728,6 +763,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       codeSize: $('code-size'),
       codePane: $('code-pane'),
       codeToggle: $('code-toggle'),
+      codeFormat: $('code-format'),
       codeCollapsedBtn: $('code-collapsed-btn'),
       divider: $('divider'),
       main: $('main'),
@@ -763,8 +799,13 @@ window.HTMLEditor = window.HTMLEditor || {};
         if (k === 'save') app.export();
         else if (k === 'undo') app.undo();
         else if (k === 'redo') app.redo();
+        else if (k === 'duplicate') app.duplicateSelected();
       },
-      onDropFiles: function (files) { app.openDropped(files); }
+      onDropFiles: function (files) { app.openDropped(files); },
+      onDragCommit: function (el) {
+        app.onPreviewCommit('移动元素');
+        app.toast('已移动 ' + describe(el));
+      }
     });
 
     ns.codeEditor.init($('code'), $('hl'), $('gutter-inner'), {
@@ -778,7 +819,8 @@ window.HTMLEditor = window.HTMLEditor || {};
       commit: function (label) { app.onPreviewCommit(label); },
       status: function (m) { app.statusMsg(m); },
       feedback: function (m) { app.toast(m); },
-      deselect: function () { app.deselect(); }
+      deselect: function () { app.deselect(); },
+      select: function (el) { ns.preview.select(el); }
     });
 
     ns.insert.init({

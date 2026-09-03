@@ -139,10 +139,15 @@
   <section id="code-pane">
     <div id="code-head">
       <span class="ch-label"><span class="ch-dot"></span>源代码</span>
-      <span id="code-size"></span>
-      <button id="code-toggle" title="折叠源代码面板">
-        <svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
-      </button>
+      <span class="ch-actions">
+        <span id="code-size"></span>
+        <button id="code-format" title="格式化源代码（重排缩进，内容不变，可撤销）">
+          <svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="7" y1="12" x2="21" y2="12"/><line x1="11" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <button id="code-toggle" title="折叠源代码面板">
+          <svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+        </button>
+      </span>
     </div>
     <div id="find-bar" hidden>
       <input type="text" id="find-input" placeholder="查找…" spellcheck="false">
@@ -168,6 +173,8 @@
   <section id="preview-pane">
     <div id="device-label" hidden></div>
     <iframe id="preview" sandbox="allow-same-origin" title="预览"></iframe>
+
+    <div id="drag-line" hidden></div>
 
     <div id="hover-badge" hidden></div>
 
@@ -201,7 +208,7 @@
           <div class="pp-title">通用操作</div>
           <div class="pp-row pp-btns">
             <button class="pp-btn" data-act="delete" title="删除选中元素">删除</button>
-            <button class="pp-btn" data-act="clone" title="复制选中元素并插入到其后">复制</button>
+            <button class="pp-btn" data-act="clone" title="复制选中元素并插入到其后 (Ctrl+D)">复制</button>
             <button class="pp-btn" data-act="up" title="与上一个兄弟元素交换位置">上移</button>
             <button class="pp-btn" data-act="down" title="与下一个兄弟元素交换位置">下移</button>
             <button class="pp-btn" data-act="visibility" title="隐藏 / 显示选中元素">隐藏</button>
@@ -209,10 +216,28 @@
           </div>
         </div>
 
+        <div class="pp-sec" id="pp-sec-table" hidden>
+          <div class="pp-title">表格</div>
+          <div class="pp-row pp-btns">
+            <button class="pp-btn" data-act="rowAbove" title="在当前行上方插入一个空行">上方插行</button>
+            <button class="pp-btn" data-act="rowBelow" title="在当前行下方插入一个空行">下方插行</button>
+            <button class="pp-btn" data-act="colLeft" title="在当前列左侧插入一个空列">左侧插列</button>
+            <button class="pp-btn" data-act="colRight" title="在当前列右侧插入一个空列">右侧插列</button>
+            <button class="pp-btn" data-act="delRow" title="删除当前单元格所在的行">删除本行</button>
+            <button class="pp-btn" data-act="delCol" title="删除当前单元格所在的列">删除本列</button>
+          </div>
+        </div>
+
         <div class="pp-sec" id="pp-sec-text">
           <div class="pp-title">文本内容</div>
           <textarea id="pp-text" rows="3" spellcheck="false" placeholder="替换元素的直接文字，换行会变成换行符，子元素不受影响"></textarea>
           <div class="pp-row"><button class="pp-btn" data-act="applyText">应用文本</button></div>
+        </div>
+
+        <div class="pp-sec" id="pp-sec-form" hidden>
+          <div class="pp-title">表单</div>
+          <div class="pp-row"><label>占位提示</label><input type="text" id="pp-form-ph" placeholder="placeholder" spellcheck="false"></div>
+          <div class="pp-row"><label>默认值</label><input type="text" id="pp-form-val" spellcheck="false"></div>
         </div>
 
         <div class="pp-sec" id="pp-sec-size">
@@ -403,6 +428,7 @@
 <script src="js/project.js"></script>
 <script src="js/draft.js"></script>
 <script src="js/codeEditor.js"></script>
+<script src="js/format.js"></script>
 <script src="js/preview.js"></script>
 <script src="js/props.js"></script>
 <script src="js/tree.js"></script>

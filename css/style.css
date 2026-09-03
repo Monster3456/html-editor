@@ -439,6 +439,18 @@ button { font-family: inherit; }
 .ctx-insert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 0 2px 2px; }
 .ctx-insert-grid .ctx-item { font-size: 12px; padding: 5px 8px; }
 
+/* ---------- 拖拽插入指示线 ---------- */
+
+#drag-line {
+  position: absolute;
+  z-index: 30;
+  height: 3px;
+  background: var(--acc);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, .3), 0 2px 8px rgba(37, 99, 235, .45);
+  pointer-events: none;
+}
+
 /* ---------- 悬停元素徽章 ---------- */
 
 #hover-badge {
@@ -524,7 +536,10 @@ button { font-family: inherit; }
   background: var(--bg1);
   user-select: none;
 }
-#code-toggle {
+.ch-actions { display: inline-flex; align-items: center; gap: 4px; }
+
+#code-toggle,
+#code-format {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -536,10 +551,12 @@ button { font-family: inherit; }
   color: var(--fg3);
   cursor: pointer;
   padding: 0;
-  margin-left: 8px;
+  margin-left: 4px;
 }
-#code-toggle:hover { background: var(--bg3); color: var(--fg); }
-#code-toggle svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+#code-toggle:hover,
+#code-format:hover { background: var(--bg3); color: var(--fg); }
+#code-toggle svg,
+#code-format svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 
 #code-collapsed-btn {
   flex: none;
@@ -753,13 +770,27 @@ button { font-family: inherit; }
   border-radius: var(--r-lg) var(--r-lg) 0 0;
 }
 #pp-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 1px;
   font-family: var(--mono);
-  font-size: 12.5px;
-  color: var(--acc);
+  font-size: 12px;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
+.bc-item {
+  color: var(--fg2);
+  cursor: pointer;
+  padding: 1px 2px;
+  border-radius: 3px;
+  flex: none;
+}
+.bc-item:hover { color: var(--acc); background: var(--bg3); }
+.bc-item.cur { color: var(--acc); font-weight: 600; cursor: default; }
+.bc-item.cur:hover { background: none; }
+.bc-sep { color: var(--fg3); flex: none; }
+.bc-dots { color: var(--fg3); flex: none; }
 #pp-close {
   flex: none;
   background: none;
@@ -813,8 +844,12 @@ button { font-family: inherit; }
   transition: background .12s, color .12s;
 }
 .pp-btn:hover { background: var(--bg3); color: var(--fg); }
-.pp-btn[data-act="delete"] { color: var(--err); border-color: rgba(220, 38, 38, .3); }
-.pp-btn[data-act="delete"]:hover { background: rgba(220, 38, 38, .07); }
+.pp-btn[data-act="delete"],
+.pp-btn[data-act="delRow"],
+.pp-btn[data-act="delCol"] { color: var(--err); border-color: rgba(220, 38, 38, .3); }
+.pp-btn[data-act="delete"]:hover,
+.pp-btn[data-act="delRow"]:hover,
+.pp-btn[data-act="delCol"]:hover { background: rgba(220, 38, 38, .07); }
 
 .pp-mini {
   background: none;

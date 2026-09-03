@@ -103,15 +103,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     }
     panel.hidden = false;
 
-    const tag = el.tagName.toLowerCase();
-    const id = el.id ? '#' + el.id : '';
-    const clsList = (typeof el.className === 'string' ? el.className.trim().split(/\s+/) : [])
-      .filter(function (c) {
-        return c && c !== ns.preview.CLS_SELECTED && c !== ns.preview.CLS_HOVER;
-      });
-    const cls = clsList.length ? '.' + clsList.slice(0, 2).join('.') : '';
-    els.breadcrumb.textContent = tag + id + cls;
-    els.breadcrumb.title = tag + id + cls;
+    buildBreadcrumb(el);
 
     const win = el.ownerDocument.defaultView;
     const cs = win.getComputedStyle(el);
@@ -139,6 +131,16 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     els.textSec.hidden = !!NO_TEXT_TAGS[el.tagName];
     if (!els.textSec.hidden) els.text.value = directText(el);
+
+    els.tableSec.hidden = !(el.tagName === 'TD' || el.tagName === 'TH');
+
+    const isFormText = el.tagName === 'TEXTAREA' ||
+      (el.tagName === 'INPUT' && /^(text|search|url|tel|email|password|number)$/.test(el.getAttribute('type') || 'text'));
+    els.formSec.hidden = !isFormText;
+    if (isFormText) {
+      els.formPh.value = el.getAttribute('placeholder') || '';
+      els.formVal.value = el.tagName === 'TEXTAREA' ? el.textContent : (el.getAttribute('value') || '');
+    }
 
     els.imgSec.hidden = el.tagName !== 'IMG';
     if (el.tagName === 'IMG') {
@@ -301,6 +303,31 @@ window.HTMLEditor = window.HTMLEditor || {};
       };
       reader.readAsDataURL(f);
     });
+
+    els.formPh.addEventListener('change', function () {
+      const el = getEl();
+      if (!el || els.formSec.hidden) return;
+      const v = els.formPh.value;
+      if (v) el.setAttribute('placeholder', v);
+      else el.removeAttribute('placeholder');
+      hooks.commit('修改占位提示');
+      feedback('占位提示已更新');
+    });
+
+    els.formVal.addEventListener('change', function () {
+      const el = getEl();
+      if (!el || els.formSec.hidden) return;
+      const v = els.formVal.value;
+      if (el.tagName === 'TEXTAREA') {
+        el.textContent = v;
+      } else {
+        if (v) el.setAttribute('value', v);
+        else el.removeAttribute('value');
+        try { el.value = v; } catch (e) { }
+      }
+      hooks.commit('修改表单默认值');
+      feedback('表单默认值已更新');
+    });
   }
 
   function describeShort(el) {
@@ -310,6 +337,111 @@ window.HTMLEditor = window.HTMLEditor || {};
         return c && c !== ns.preview.CLS_SELECTED && c !== ns.preview.CLS_HOVER;
       });
     return tag + (el.id ? '#' + el.id : cls.length ? '.' + cls[0] : '');
+  }
+
+  function makeCrumbSep() {
+    const s = document.createElement('span');
+    s.className = 'bc-sep';
+    s.textContent = '›';
+    return s;
+  }
+
+  function makeCrumbItem(node, isCurrent) {
+    const s = document.createElement('span');
+    s.className = 'bc-item' + (isCurrent ? ' cur' : '');
+    s.textContent = describeShort(node);
+    if (!isCurrent) {
+      s.title = '选中 ' + s.textContent;
+      s.addEventListener('click', function () {
+        if (node.isConnected) hooks.select(node);
+      });
+    }
+    return s;
+  }
+
+  function buildBreadcrumb(el) {
+    const bc = els.breadcrumb;
+    bc.textContent = '';
+    const doc = el.ownerDocument;
+    const chain = [];
+    let node = el;
+    while (node && node.nodeType === 1) {
+      chain.push(node);
+      if (node === doc.body || node === doc.documentElement) break;
+      node = node.parentElement;
+    }
+    const shown = chain.slice(0, 6);
+    const rest = chain.slice(6);
+    if (rest.length) {
+      const dots = document.createElement('span');
+      dots.className = 'bc-dots';
+      dots.textContent = '…';
+      dots.title = rest.map(describeShort).join(' › ');
+      bc.appendChild(dots);
+      bc.appendChild(makeCrumbSep());
+    }
+    for (let i = shown.length - 1; i >= 0; i--) {
+      const n = shown[i];
+      if (bc.firstChild) bc.appendChild(makeCrumbSep());
+      bc.appendChild(makeCrumbItem(n, n === el));
+    }
+    bc.title = chain.slice().reverse().map(describeShort).join(' › ');
+  }
+
+  function cloneCellShallow(c) {
+    const nc = c.cloneNode(false);
+    nc.textContent = '';
+    nc.removeAttribute('id');
+    return nc;
+  }
+
+  function insertTableRow(cell, below) {
+    const tr = cell.closest('tr');
+    if (!tr) return false;
+    const newRow = cell.ownerDocument.createElement('tr');
+    Array.prototype.forEach.call(tr.children, function (c) {
+      newRow.appendChild(cloneCellShallow(c));
+    });
+    if (below) tr.after(newRow);
+    else tr.before(newRow);
+    return true;
+  }
+
+  function insertTableColumn(cell, right) {
+    const table = cell.closest('table');
+    if (!table) return false;
+    const idx = cell.cellIndex;
+    let any = false;
+    Array.prototype.forEach.call(table.rows, function (tr) {
+      if (idx < tr.cells.length) {
+        const src = tr.cells[idx];
+        const ref = right ? src.nextSibling : src;
+        tr.insertBefore(cloneCellShallow(src), ref);
+        any = true;
+      }
+    });
+    return any;
+  }
+
+  function deleteTableRow(cell) {
+    const tr = cell.closest('tr');
+    if (!tr) return false;
+    tr.remove();
+    return true;
+  }
+
+  function deleteTableColumn(cell) {
+    const table = cell.closest('table');
+    if (!table) return false;
+    const idx = cell.cellIndex;
+    let any = false;
+    Array.prototype.forEach.call(table.rows, function (tr) {
+      if (idx < tr.cells.length) {
+        tr.cells[idx].remove();
+        any = true;
+      }
+    });
+    return any;
   }
 
   function feedback(text) {
@@ -336,11 +468,59 @@ window.HTMLEditor = window.HTMLEditor || {};
       case 'clone': {
         if (/^(HTML|HEAD|BODY)$/.test(el.tagName)) return;
         const c = el.cloneNode(true);
-        c.classList.remove(ns.preview.CLS_SELECTED, ns.preview.CLS_HOVER);
+        c.classList.remove(ns.preview.CLS_SELECTED, ns.preview.CLS_HOVER, ns.preview.CLS_DRAGGING);
         if (!c.getAttribute('class')) c.removeAttribute('class');
+        c.removeAttribute('id');
         el.after(c);
+        if (hooks.select) hooks.select(c);
         hooks.commit('复制元素');
         feedback('已复制 ' + describeShort(el));
+        return;
+      }
+
+      case 'rowAbove':
+      case 'rowBelow': {
+        if (el.tagName !== 'TD' && el.tagName !== 'TH') return;
+        const below = act === 'rowBelow';
+        if (insertTableRow(el, below)) {
+          hooks.commit(below ? '下方插入行' : '上方插入行');
+          feedback(below ? '已在下方插入行' : '已在上方插入行');
+        }
+        return;
+      }
+
+      case 'colLeft':
+      case 'colRight': {
+        if (el.tagName !== 'TD' && el.tagName !== 'TH') return;
+        const right = act === 'colRight';
+        if (insertTableColumn(el, right)) {
+          hooks.commit(right ? '右侧插入列' : '左侧插入列');
+          feedback(right ? '已在右侧插入列' : '已在左侧插入列');
+        } else {
+          hooks.status('无法在此插入列');
+        }
+        return;
+      }
+
+      case 'delRow': {
+        if (el.tagName !== 'TD' && el.tagName !== 'TH') return;
+        if (deleteTableRow(el)) {
+          hooks.deselect();
+          hooks.commit('删除行');
+          feedback('已删除所在行');
+        }
+        return;
+      }
+
+      case 'delCol': {
+        if (el.tagName !== 'TD' && el.tagName !== 'TH') return;
+        if (deleteTableColumn(el)) {
+          hooks.deselect();
+          hooks.commit('删除列');
+          feedback('已删除所在列');
+        } else {
+          hooks.status('无法删除该列');
+        }
         return;
       }
 
@@ -470,6 +650,10 @@ window.HTMLEditor = window.HTMLEditor || {};
         close: $('pp-close'),
         text: $('pp-text'),
         textSec: $('pp-sec-text'),
+        tableSec: $('pp-sec-table'),
+        formSec: $('pp-sec-form'),
+        formPh: $('pp-form-ph'),
+        formVal: $('pp-form-val'),
         actual: $('pp-actual'),
         w: $('pp-w'),
         h: $('pp-h'),

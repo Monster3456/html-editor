@@ -31,7 +31,7 @@ window.HTMLEditor = window.HTMLEditor || {};
 
     const structural = !/^(HTML|HEAD|BODY)$/.test(el.tagName);
     if (structural) {
-      menu.appendChild(item('clone', '复制元素'));
+      menu.appendChild(item('clone', '复制元素 (Ctrl+D)'));
       menu.appendChild(item('delete', '删除', 'danger'));
       const sep1 = document.createElement('div');
       sep1.className = 'ctx-sep';
