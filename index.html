@@ -80,23 +80,35 @@
   <button class="btn icon-only" id="btn-redo" title="重做 (Ctrl+Y)" disabled>
     <svg viewBox="0 0 24 24"><polyline points="15 14 20 9 15 4"/><path d="M4 20v-7a4 4 0 0 1 4-4h12"/></svg>
   </button>
-  <button class="btn icon-only" id="btn-refresh" title="按当前源码重新渲染预览">
-    <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-  </button>
-  <button class="btn icon-only" id="btn-reset" title="恢复为打开时的原始内容">
-    <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-  </button>
-  <button class="btn icon-only" id="btn-newwin" title="在浏览器新窗口中打开当前预览">
-    <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-  </button>
+
+  <div class="menu-wrap" id="more-menu">
+    <button class="btn icon-only" id="btn-more" title="更多操作">
+      <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg>
+    </button>
+    <div class="menu menu-right" id="more-menu-list" hidden>
+      <button class="menu-item" id="mi-refresh">
+        <svg viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        <span>刷新预览</span>
+      </button>
+      <button class="menu-item" id="mi-newwin">
+        <svg viewBox="0 0 24 24"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        <span>在新窗口打开</span>
+      </button>
+      <button class="menu-item" id="mi-reset">
+        <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+        <span>恢复原始内容</span>
+      </button>
+      <div class="menu-sep"></div>
+      <label class="menu-item menu-check" id="mi-scripts" title="默认禁用页面脚本以保证编辑稳定；开启后脚本会执行并可能干扰编辑">
+        <svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+        <span>允许页面脚本</span>
+        <input type="checkbox" id="chk-scripts">
+        <span class="sw-track"><span class="sw-knob"></span></span>
+      </label>
+    </div>
+  </div>
 
   <span class="tb-flex"></span>
-
-  <label class="switch" title="默认禁用页面脚本以保证编辑稳定；开启后脚本会执行并可能干扰编辑">
-    <input type="checkbox" id="chk-scripts">
-    <span class="sw-track"><span class="sw-knob"></span></span>
-    <span class="sw-label">允许脚本</span>
-  </label>
 
   <span id="dirty-dot" title="有未导出的修改" hidden>●</span>
   <input type="text" id="filename" value="未命名.html" title="导出文件名（可修改）" spellcheck="false">
@@ -120,10 +132,17 @@
     <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
   </button>
 
+  <button id="code-collapsed-btn" title="展开源代码面板" hidden>
+    <svg viewBox="0 0 24 24"><polyline points="13 17 18 12 13 7"/><polyline points="6 17 11 12 6 7"/></svg>
+  </button>
+
   <section id="code-pane">
     <div id="code-head">
       <span class="ch-label"><span class="ch-dot"></span>源代码</span>
       <span id="code-size"></span>
+      <button id="code-toggle" title="折叠源代码面板">
+        <svg viewBox="0 0 24 24"><polyline points="11 17 6 12 11 7"/><polyline points="18 17 13 12 18 7"/></svg>
+      </button>
     </div>
     <div id="find-bar" hidden>
       <input type="text" id="find-input" placeholder="查找…" spellcheck="false">
@@ -149,6 +168,13 @@
   <section id="preview-pane">
     <div id="device-label" hidden></div>
     <iframe id="preview" sandbox="allow-same-origin" title="预览"></iframe>
+
+    <div id="hover-badge" hidden></div>
+
+    <div id="toast" hidden>
+      <svg id="toast-ic" viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      <span id="toast-text"></span>
+    </div>
 
     <div id="ctx-menu" hidden></div>
 

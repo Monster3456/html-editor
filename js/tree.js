@@ -210,7 +210,8 @@ window.HTMLEditor = window.HTMLEditor || {};
       return;
     }
     hooks.commit('移动元素');
-    hooks.status('元素已移动');
+    if (hooks.feedback) hooks.feedback('元素已移动');
+    else hooks.status('元素已移动');
     scheduleRebuild();
   }
 

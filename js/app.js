@@ -21,6 +21,21 @@ window.HTMLEditor = window.HTMLEditor || {};
   let pickerResolve = null;
   let draftTimer = null;
   let draftRecord = null;
+  let toastTimer = null;
+
+  app.toast = function (text, duration) {
+    if (!dom.toast) return;
+    dom.toastText.textContent = text;
+    dom.toast.hidden = false;
+    requestAnimationFrame(function () {
+      dom.toast.classList.add('show');
+    });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      dom.toast.classList.remove('show');
+      setTimeout(function () { dom.toast.hidden = true; }, 220);
+    }, duration || 2500);
+  };
 
   function describe(el) {
     const tag = el.tagName.toLowerCase();
@@ -279,13 +294,14 @@ window.HTMLEditor = window.HTMLEditor || {};
     if (!/\.(html?|xhtml)$/i.test(name)) name += '.html';
     const finish = function (result) {
       ns.io.exportFile(name, result.html);
-      app.statusMsg(result.inlined > 0
-        ? '已导出：' + name + '（已内联 ' + result.inlined + ' 个外部资源）'
-        : '已导出：' + name);
+      const size = formatSize(new Blob([result.html]).size);
+      app.toast(result.inlined > 0
+        ? '已导出 ' + name + ' · ' + size + '（已内联 ' + result.inlined + ' 个资源）'
+        : '已导出 ' + name + ' · ' + size, 4000);
     };
     ns.project.selfContain(str).then(finish, function () {
       ns.io.exportFile(name, str);
-      app.statusMsg('已导出：' + name);
+      app.toast('已导出 ' + name + ' · ' + formatSize(new Blob([str]).size), 4000);
     });
   };
 
@@ -302,7 +318,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     ns.preview.render(entry.html);
     updateDirty();
     refreshToolbar();
-    app.statusMsg('已撤销：' + entry.label);
+    app.toast('已撤销：' + entry.label);
   };
 
   app.redo = function () {
@@ -318,7 +334,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     ns.preview.render(entry.html);
     updateDirty();
     refreshToolbar();
-    app.statusMsg('已重做：' + entry.label);
+    app.toast('已重做：' + entry.label);
   };
 
   app.resetDoc = function () {
@@ -435,6 +451,13 @@ window.HTMLEditor = window.HTMLEditor || {};
     try { localStorage.setItem('he:tree', c ? '0' : '1'); } catch (e) { }
   }
 
+  function collapseCode(c) {
+    dom.codePane.classList.toggle('collapsed', c);
+    dom.codeCollapsedBtn.hidden = !c;
+    dom.divider.style.display = c ? 'none' : '';
+    try { localStorage.setItem('he:code', c ? '0' : '1'); } catch (e) { }
+  }
+
   function wireToolbar() {
     dom.btnOpen.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -443,6 +466,7 @@ window.HTMLEditor = window.HTMLEditor || {};
     document.addEventListener('click', function (e) {
       if (!dom.openMenu.contains(e.target)) dom.openMenuList.hidden = true;
       if (!dom.insertMenu.contains(e.target)) dom.insertMenuList.hidden = true;
+      if (!dom.moreMenu.contains(e.target)) dom.moreMenuList.hidden = true;
     });
     dom.miOpenFile.addEventListener('click', function () {
       dom.openMenuList.hidden = true;
@@ -451,6 +475,25 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.miOpenDir.addEventListener('click', function () {
       dom.openMenuList.hidden = true;
       dom.dirInput.click();
+    });
+
+    dom.btnMore.addEventListener('click', function (e) {
+      e.stopPropagation();
+      dom.moreMenuList.hidden = !dom.moreMenuList.hidden;
+    });
+    dom.miRefresh.addEventListener('click', function () {
+      dom.moreMenuList.hidden = true;
+      app.refreshPreview();
+      app.statusMsg('预览已刷新');
+    });
+    dom.miNewwin.addEventListener('click', function () {
+      dom.moreMenuList.hidden = true;
+      const ok = ns.io.openInNewWindow(ns.preview.serialize());
+      if (!ok) app.statusMsg('弹出窗口被浏览器拦截，请允许弹窗后重试');
+    });
+    dom.miReset.addEventListener('click', function () {
+      dom.moreMenuList.hidden = true;
+      app.resetDoc();
     });
 
     dom.btnInsert.addEventListener('click', function (e) {
@@ -474,6 +517,12 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.treeCollapsedBtn.addEventListener('click', function () { collapseTree(false); });
     try {
       if (localStorage.getItem('he:tree') === '0') collapseTree(true);
+    } catch (e) { }
+
+    dom.codeToggle.addEventListener('click', function () { collapseCode(true); });
+    dom.codeCollapsedBtn.addEventListener('click', function () { collapseCode(false); });
+    try {
+      if (localStorage.getItem('he:code') === '0') collapseCode(true);
     } catch (e) { }
 
     dom.wcResume.addEventListener('click', function () {
@@ -502,11 +551,6 @@ window.HTMLEditor = window.HTMLEditor || {};
     dom.btnExport.addEventListener('click', app.export);
     dom.btnUndo.addEventListener('click', app.undo);
     dom.btnRedo.addEventListener('click', app.redo);
-    dom.btnReset.addEventListener('click', app.resetDoc);
-    dom.btnRefresh.addEventListener('click', function () {
-      app.refreshPreview();
-      app.statusMsg('预览已刷新');
-    });
 
     dom.chkScripts.addEventListener('change', function (e) {
       app.state.scriptsEnabled = e.target.checked;
@@ -514,11 +558,6 @@ window.HTMLEditor = window.HTMLEditor || {};
       app.statusMsg(app.state.scriptsEnabled
         ? '已允许页面脚本执行（已重新渲染）'
         : '已禁用页面脚本（已重新渲染）');
-    });
-
-    dom.btnNewwin.addEventListener('click', function () {
-      const ok = ns.io.openInNewWindow(ns.preview.serialize());
-      if (!ok) app.statusMsg('弹出窗口被浏览器拦截，请允许弹窗后重试');
     });
 
     dom.filename.addEventListener('change', function () {
@@ -656,6 +695,12 @@ window.HTMLEditor = window.HTMLEditor || {};
       btnInsert: $('btn-insert'),
       insertMenu: $('insert-menu'),
       insertMenuList: $('insert-menu-list'),
+      btnMore: $('btn-more'),
+      moreMenu: $('more-menu'),
+      moreMenuList: $('more-menu-list'),
+      miRefresh: $('mi-refresh'),
+      miNewwin: $('mi-newwin'),
+      miReset: $('mi-reset'),
       deviceSeg: $('device-seg'),
       deviceLabel: $('device-label'),
       treePane: $('tree-pane'),
@@ -663,10 +708,7 @@ window.HTMLEditor = window.HTMLEditor || {};
       treeCollapsedBtn: $('tree-collapsed-btn'),
       btnUndo: $('btn-undo'),
       btnRedo: $('btn-redo'),
-      btnReset: $('btn-reset'),
-      btnRefresh: $('btn-refresh'),
       chkScripts: $('chk-scripts'),
-      btnNewwin: $('btn-newwin'),
       filename: $('filename'),
       dirtyDot: $('dirty-dot'),
       welcome: $('welcome'),
@@ -685,9 +727,13 @@ window.HTMLEditor = window.HTMLEditor || {};
       code: $('code'),
       codeSize: $('code-size'),
       codePane: $('code-pane'),
+      codeToggle: $('code-toggle'),
+      codeCollapsedBtn: $('code-collapsed-btn'),
       divider: $('divider'),
       main: $('main'),
       previewPane: $('preview-pane'),
+      toast: $('toast'),
+      toastText: $('toast-text'),
       hint: $('preview-hint'),
       hintTitle: $('preview-hint-title'),
       hintSub: $('preview-hint-sub'),
@@ -731,13 +777,15 @@ window.HTMLEditor = window.HTMLEditor || {};
       getEl: function () { return app.state.selected; },
       commit: function (label) { app.onPreviewCommit(label); },
       status: function (m) { app.statusMsg(m); },
+      feedback: function (m) { app.toast(m); },
       deselect: function () { app.deselect(); }
     });
 
     ns.insert.init({
       flushCodeCommit: function () { return app.flushCodeCommit(); },
       commit: function (label) { app.onPreviewCommit(label); },
-      status: function (m) { app.statusMsg(m); }
+      status: function (m) { app.statusMsg(m); },
+      feedback: function (m) { app.toast(m); }
     });
 
     ns.tree.init($('tree-root'), {
@@ -747,7 +795,8 @@ window.HTMLEditor = window.HTMLEditor || {};
         try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { }
       },
       commit: function (label) { app.onPreviewCommit(label); },
-      status: function (m) { app.statusMsg(m); }
+      status: function (m) { app.statusMsg(m); },
+      feedback: function (m) { app.toast(m); }
     });
 
     ns.contextmenu.init($('ctx-menu'), {

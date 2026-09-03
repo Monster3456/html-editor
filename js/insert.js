@@ -104,7 +104,8 @@ window.HTMLEditor = window.HTMLEditor || {};
     hooks.commit('插入' + DEFS[type].label);
     ns.preview.select(el);
     try { el.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) { }
-    hooks.status('已插入' + DEFS[type].label + (type === 'video' ? '，请在源代码中为其填写视频地址' : ''));
+    if (hooks.feedback) hooks.feedback('已插入' + DEFS[type].label);
+    else hooks.status('已插入' + DEFS[type].label + (type === 'video' ? '，请在源代码中为其填写视频地址' : ''));
   }
 
   ns.insert = {

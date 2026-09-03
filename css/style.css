@@ -125,6 +125,15 @@ button { font-family: inherit; }
 
 .menu-wrap { position: relative; }
 
+.menu.menu-right { left: auto; right: 0; min-width: 200px; }
+
+.menu-sep { height: 1px; background: var(--line); margin: 5px 8px; }
+
+.menu-check { cursor: pointer; }
+.menu-check input { position: absolute; opacity: 0; pointer-events: none; }
+.menu-check .sw-track { margin-left: auto; }
+.menu-check:hover .sw-track { border-color: var(--line2); }
+
 .menu {
   position: absolute;
   top: calc(100% + 6px);
@@ -154,6 +163,10 @@ button { font-family: inherit; }
 }
 .menu-item svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 .menu-item:hover { background: var(--bg3); color: var(--fg); }
+.menu-check input:checked ~ .sw-track,
+.menu-check input:checked + .sw-track { background: var(--acc); border-color: var(--acc); }
+.menu-check input:checked ~ .sw-track .sw-knob,
+.menu-check input:checked + .sw-track .sw-knob { transform: translateX(14px); }
 .menu-item kbd {
   margin-left: auto;
   font-family: inherit;
@@ -426,7 +439,49 @@ button { font-family: inherit; }
 .ctx-insert-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; padding: 0 2px 2px; }
 .ctx-insert-grid .ctx-item { font-size: 12px; padding: 5px 8px; }
 
+/* ---------- 悬停元素徽章 ---------- */
+
+#hover-badge {
+  position: absolute;
+  z-index: 30;
+  background: rgba(28, 35, 51, .88);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 11px;
+  border-radius: 5px;
+  padding: 2px 7px;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(16, 24, 40, .25);
+}
+
 /* ---------- 设备宽度标签 ---------- */
+
+#toast {
+  position: absolute;
+  bottom: 22px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 82%;
+  background: rgba(28, 35, 51, .92);
+  color: #fff;
+  font-size: 13px;
+  border-radius: 999px;
+  padding: 9px 18px;
+  box-shadow: 0 6px 20px rgba(16, 24, 40, .3);
+  z-index: 40;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0;
+  transition: opacity .18s ease, transform .18s ease;
+  pointer-events: none;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast svg { width: 15px; height: 15px; stroke: #7ee2a8; fill: none; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
 
 #device-label {
   position: absolute;
@@ -454,6 +509,7 @@ button { font-family: inherit; }
   background: var(--bg0);
   overflow: hidden;
 }
+#code-pane.collapsed { display: none; }
 
 #code-head {
   flex: none;
@@ -468,6 +524,38 @@ button { font-family: inherit; }
   background: var(--bg1);
   user-select: none;
 }
+#code-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  background: none;
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--fg3);
+  cursor: pointer;
+  padding: 0;
+  margin-left: 8px;
+}
+#code-toggle:hover { background: var(--bg3); color: var(--fg); }
+#code-toggle svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+#code-collapsed-btn {
+  flex: none;
+  width: 26px;
+  border: none;
+  border-right: 1px solid var(--line);
+  background: var(--bg1);
+  color: var(--fg3);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+#code-collapsed-btn:hover { color: var(--acc); background: var(--bg3); }
+#code-collapsed-btn svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .ch-label { display: inline-flex; align-items: center; gap: 7px; color: var(--fg2); font-weight: 600; letter-spacing: .3px; }
 .ch-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--acc); flex: none; }
 #code-size { font-family: var(--mono); font-size: 11px; }

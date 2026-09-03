@@ -297,10 +297,24 @@ window.HTMLEditor = window.HTMLEditor || {};
         el.setAttribute('src', reader.result);
         els.imgSrc.value = reader.result;
         hooks.commit('上传替换图片');
-        hooks.status('图片已替换');
+        feedback('图片已替换');
       };
       reader.readAsDataURL(f);
     });
+  }
+
+  function describeShort(el) {
+    const tag = el.tagName.toLowerCase();
+    const cls = (typeof el.className === 'string' ? el.className.trim().split(/\s+/) : [])
+      .filter(function (c) {
+        return c && c !== ns.preview.CLS_SELECTED && c !== ns.preview.CLS_HOVER;
+      });
+    return tag + (el.id ? '#' + el.id : cls.length ? '.' + cls[0] : '');
+  }
+
+  function feedback(text) {
+    if (hooks.feedback) hooks.feedback(text);
+    else hooks.status(text);
   }
 
   function handleAction(act) {
@@ -316,7 +330,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         el.remove();
         hooks.deselect();
         hooks.commit('删除元素');
-        hooks.status('元素已删除');
+        feedback('已删除 ' + describeShort(el));
         return;
 
       case 'clone': {
@@ -326,7 +340,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         if (!c.getAttribute('class')) c.removeAttribute('class');
         el.after(c);
         hooks.commit('复制元素');
-        hooks.status('元素已复制');
+        feedback('已复制 ' + describeShort(el));
         return;
       }
 
@@ -344,6 +358,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         if (dir < 0) parent.insertBefore(el, sib);
         else parent.insertBefore(el, sib.nextSibling);
         hooks.commit(dir < 0 ? '上移元素' : '下移元素');
+        feedback(dir < 0 ? '已上移 ' + describeShort(el) : '已下移 ' + describeShort(el));
         return;
       }
 
@@ -364,6 +379,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         el.style.removeProperty('width');
         el.style.removeProperty('height');
         hooks.commit('清除宽高');
+        feedback('已清除 ' + describeShort(el) + ' 的宽高');
         updateSizeSection(el);
         return;
 
@@ -372,6 +388,7 @@ window.HTMLEditor = window.HTMLEditor || {};
         el.style.removeProperty('margin');
         el.style.removeProperty('border-radius');
         hooks.commit('清除间距');
+        feedback('已清除 ' + describeShort(el) + ' 的间距');
         updateSizeSection(el);
         return;
 
