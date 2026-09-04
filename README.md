@@ -92,7 +92,8 @@ python -m http.server 8000
 - frameset 页面不支持可视化编辑，但源码编辑与导出正常
 - 插入的"视频"元素不带默认片源，插入后请在源代码中为 `<video>` 填写视频地址
 - 草稿保存在浏览器本地（IndexedDB，单文件上限约 10MB）；清除浏览器数据会同时清除草稿
-
+- 欢迎大家参与进来一起实现更好的在线编辑htmlxiangmu
+  
 ## License
 
 MIT
